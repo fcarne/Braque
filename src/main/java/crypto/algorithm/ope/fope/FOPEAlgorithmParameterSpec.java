@@ -1,4 +1,4 @@
-package crypto.algortihm.ope.fope;
+package crypto.algorithm.ope.fope;
 
 import java.security.spec.AlgorithmParameterSpec;
 

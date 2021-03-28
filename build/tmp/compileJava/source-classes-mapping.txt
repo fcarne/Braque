@@ -1,20 +1,21 @@
-crypto/configuration/ColumnSpecs.java
- crypto.configuration.ColumnSpecs
-crypto/algortihm/ope/fope/FOPESecretKeySpec.java
- crypto.algortihm.ope.fope.FOPESecretKeySpec
-crypto/algortihm/ope/fope/FOPECipher.java
- crypto.algortihm.ope.fope.FOPECipher
 crypto/BraqueProvider.java
  crypto.BraqueProvider
+crypto/algorithm/ope/fope/FOPEAlgorithmParameterSpec.java
+ crypto.algorithm.ope.fope.FOPEAlgorithmParameterSpec
 crypto/configuration/CipherConfiguration.java
  crypto.configuration.CipherConfiguration
-ui/BraqueApp.java
- ui.BraqueApp
-crypto/algortihm/ope/fope/FOPEKeyGenerator.java
- crypto.algortihm.ope.fope.FOPEKeyGenerator
+crypto/configuration/ColumnSpecs.java
+ crypto.configuration.ColumnSpecs
 crypto/EngineAutoBindable.java
  crypto.EngineAutoBindable
-crypto/algortihm/ope/fope/FOPEAlgorithmParameterSpec.java
- crypto.algortihm.ope.fope.FOPEAlgorithmParameterSpec
+ui/BraqueApp.java
+ ui.BraqueApp
 Braque.java
  Braque
+crypto/algorithm/ope/fope/FOPESecretKeySpec.java
+ crypto.algorithm.ope.fope.FOPESecretKeySpec
+ crypto.algorithm.ope.fope.FOPESecretKeySpec$Raw
+crypto/algorithm/ope/fope/FOPEKeyGenerator.java
+ crypto.algorithm.ope.fope.FOPEKeyGenerator
+crypto/algorithm/ope/fope/FOPECipher.java
+ crypto.algorithm.ope.fope.FOPECipher

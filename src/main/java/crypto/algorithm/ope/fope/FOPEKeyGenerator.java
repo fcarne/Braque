@@ -1,4 +1,4 @@
-package crypto.algortihm.ope.fope;
+package crypto.algorithm.ope.fope;
 
 import crypto.EngineAutoBindable;
 
@@ -45,13 +45,13 @@ public class FOPEKeyGenerator extends KeyGeneratorSpi implements EngineAutoBinda
 
     @Override
     protected SecretKey engineGenerateKey() {
-        double alpha = 0.2 + 0.3 * secureRandom.nextDouble();
+        double alpha = 0.15 + 0.35 * secureRandom.nextDouble();
         double beta = 1.0 - alpha;
         double e = (1 + secureRandom.nextDouble()) * alpha / 2;
         long n = (long) Math.ceil((double) tau / (beta * Math.pow(e, d)));
         long k = secureRandom.nextLong() & Long.MAX_VALUE; // k can only be positive
 
-        return new FOPESecretKeySpec(n, alpha, e, k);
+        return new FOPESecretKeySpec.Raw().setN(n).setAlpha(alpha).setE(e).setK(k).build();
     }
 
 }

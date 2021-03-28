@@ -1,4 +1,4 @@
-package crypto.algortihm.ope.fope;
+package crypto.algorithm.ope.fope;
 
 import crypto.EngineAutoBindable;
 
@@ -12,7 +12,6 @@ import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.security.*;
 import java.security.spec.AlgorithmParameterSpec;
-import java.util.Map;
 
 public class FOPECipher extends CipherSpi implements EngineAutoBindable {
 
@@ -64,12 +63,12 @@ public class FOPECipher extends CipherSpi implements EngineAutoBindable {
     protected void engineInit(int opmode, Key key, SecureRandom secureRandom) throws InvalidKeyException {
         this.opmode = opmode;
         if (key instanceof FOPESecretKeySpec) {
-            Map<String, Number> raw = ((FOPESecretKeySpec) key).decodeKey();
+            FOPESecretKeySpec.Raw raw = ((FOPESecretKeySpec) key).decodeKey();
 
-            BigDecimal alpha = BigDecimal.valueOf((double) raw.get("alpha"));
-            BigDecimal beta = BigDecimal.valueOf((double) raw.get("beta"));
-            BigDecimal n = BigDecimal.valueOf((long) raw.get("n"));
-            BigDecimal e = BigDecimal.valueOf((double) raw.get("e"));
+            BigDecimal alpha = BigDecimal.valueOf(raw.getAlpha());
+            BigDecimal beta = BigDecimal.valueOf(raw.getBeta());
+            BigDecimal n = BigDecimal.valueOf((raw.getN()));
+            BigDecimal e = BigDecimal.valueOf(raw.getE());
 
             infLimitF = new long[d + 1];
             supLimitF = new long[d + 1];
@@ -80,9 +79,7 @@ public class FOPECipher extends CipherSpi implements EngineAutoBindable {
                 supLimitF[j] = beta.multiply(factor).setScale(0, RoundingMode.CEILING).longValue();
             }
 
-
-
-            kBytes = ByteBuffer.allocate(Long.BYTES).putLong((Long) raw.get("k")).array();
+            kBytes = ByteBuffer.allocate(Long.BYTES).putLong(raw.getK()).array();
 
         } else throw new InvalidKeyException("The key used is not a FOPE Key");
     }
@@ -196,12 +193,14 @@ public class FOPECipher extends CipherSpi implements EngineAutoBindable {
             // Convert to big integer
             BigInteger bi = new BigInteger(hash);
 
+            BigInteger modulus = BigInteger.valueOf(supLimitF[i] - infLimitF[i]);
+
             // Calculate function value
-            return bi.mod(BigInteger.valueOf(supLimitF[i] - infLimitF[i])).add(BigInteger.valueOf(infLimitF[i])).longValue();
+            return  bi.mod(modulus).add(BigInteger.valueOf(infLimitF[i])).longValue();
 
         } catch (NoSuchAlgorithmException e) {
             e.printStackTrace();
-            return 0;
+            return -1;
         }
     }
 }
