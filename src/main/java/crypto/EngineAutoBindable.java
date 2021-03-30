@@ -1,8 +1,18 @@
 package crypto;
 
+import java.lang.reflect.Method;
+
 public interface EngineAutoBindable {
 
-     String BIND_METHOD = "getBind";
-     String getBind();
+    static Method getBindMethod() {
+        try {
+            return EngineAutoBindable.class.getMethod("getBind");
+        } catch (NoSuchMethodException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    String getBind();
 
 }

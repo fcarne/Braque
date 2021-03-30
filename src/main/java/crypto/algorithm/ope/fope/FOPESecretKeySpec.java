@@ -5,7 +5,7 @@ import java.nio.ByteBuffer;
 
 public class FOPESecretKeySpec extends SecretKeySpec {
     public FOPESecretKeySpec(byte[] key) {
-        super(key, "FOPE");
+        super(key, FOPECipher.ALGORITHM_NAME);
     }
 
     public FOPESecretKeySpec(Raw raw) {
@@ -14,19 +14,19 @@ public class FOPESecretKeySpec extends SecretKeySpec {
 
     public Raw decodeKey() {
         ByteBuffer buffer = ByteBuffer.wrap(getEncoded());
-        if (buffer.remaining() != (2 * Long.BYTES + 2 * Double.BYTES)) return null;
+        if (buffer.remaining() != (3 * Double.BYTES + Long.BYTES)) return null;
 
-        return new Raw().setN(buffer.getLong()).setAlpha(buffer.getDouble()).setE(buffer.getDouble()).setK(buffer.getLong());
+        return new Raw().setN(buffer.getDouble()).setAlpha(buffer.getDouble()).setE(buffer.getDouble()).setK(buffer.getLong());
 
     }
 
     public static class Raw {
-        private long n;
+        private double n;
         private double alpha;
         private double e;
         private long k;
 
-        public Raw setN(long n) {
+        public Raw setN(double n) {
             this.n = n;
             return this;
         }
@@ -46,7 +46,7 @@ public class FOPESecretKeySpec extends SecretKeySpec {
             return this;
         }
 
-        public long getN() {
+        public double getN() {
             return n;
         }
 
@@ -67,9 +67,9 @@ public class FOPESecretKeySpec extends SecretKeySpec {
         }
 
         public byte[] encode() {
-            ByteBuffer buffer = ByteBuffer.allocate(2 * Long.BYTES + 2 * Double.BYTES);
+            ByteBuffer buffer = ByteBuffer.allocate(3 * Double.BYTES + Long.BYTES);
 
-            buffer.putLong(n);
+            buffer.putDouble(n);
             buffer.putDouble(alpha);
             buffer.putDouble(e);
             buffer.putLong(k);

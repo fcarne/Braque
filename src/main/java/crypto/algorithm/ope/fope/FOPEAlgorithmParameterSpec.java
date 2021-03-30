@@ -19,7 +19,6 @@ public class FOPEAlgorithmParameterSpec implements AlgorithmParameterSpec {
         this.d = d > 0 ? d : DEFAULT_D;
     }
 
-
     public int getTau() {
         return tau;
     }

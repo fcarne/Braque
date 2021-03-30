@@ -15,18 +15,21 @@ import java.security.spec.AlgorithmParameterSpec;
 
 public class FOPECipher extends CipherSpi implements EngineAutoBindable {
 
+    public static final String ALGORITHM_NAME = "FastOPE";
+
     private int opmode;
 
     private byte[] kBytes;
 
     private int d = FOPEAlgorithmParameterSpec.DEFAULT_D;
+    private int nBytesLength;
 
-    private long[] infLimitF;
-    private long[] supLimitF;
+    private BigInteger[] infLimitF;
+    private BigInteger[] supLimitF;
 
     @Override
     public String getBind() {
-        return "Cipher.FOPE";
+        return "Cipher." + ALGORITHM_NAME;
     }
 
     @Override
@@ -70,17 +73,19 @@ public class FOPECipher extends CipherSpi implements EngineAutoBindable {
             BigDecimal n = BigDecimal.valueOf((raw.getN()));
             BigDecimal e = BigDecimal.valueOf(raw.getE());
 
-            infLimitF = new long[d + 1];
-            supLimitF = new long[d + 1];
+            infLimitF = new BigInteger[d + 1];
+            supLimitF = new BigInteger[d + 1];
 
             for (int j = 0; j <= d; j++) {
-                BigDecimal factor = n.multiply(e.pow(j));
-                infLimitF[j] = alpha.multiply(factor).setScale(0, RoundingMode.FLOOR).longValue();
-                supLimitF[j] = beta.multiply(factor).setScale(0, RoundingMode.CEILING).longValue();
+                BigDecimal factor = e.pow(j).multiply(n);
+                infLimitF[j] = alpha.multiply(factor).setScale(0, RoundingMode.FLOOR).toBigInteger();
+                supLimitF[j] = beta.multiply(factor).setScale(0, RoundingMode.CEILING).toBigInteger();
             }
+            infLimitF[d] = BigInteger.ONE;
 
             kBytes = ByteBuffer.allocate(Long.BYTES).putLong(raw.getK()).array();
 
+            nBytesLength = n.toBigInteger().toByteArray().length;
         } else throw new InvalidKeyException("The key used is not a FOPE Key");
     }
 
@@ -99,7 +104,12 @@ public class FOPECipher extends CipherSpi implements EngineAutoBindable {
 
     @Override
     protected byte[] engineUpdate(byte[] input, int inputOffset, int inputLen) {
-        byte[] output = new byte[inputLen];
+        byte[] output = null;
+        if (opmode == Cipher.ENCRYPT_MODE) {
+            output = new byte[nBytesLength];
+        } else if (opmode == Cipher.DECRYPT_MODE) {
+            output = new byte[Long.BYTES];
+        }
         try {
             engineUpdate(input, inputOffset, inputLen, output, 0);
             return output;
@@ -111,57 +121,39 @@ public class FOPECipher extends CipherSpi implements EngineAutoBindable {
 
     @Override
     protected int engineUpdate(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) throws ShortBufferException {
-        ByteBuffer plaintext;
-        ByteBuffer ciphertext;
-        int limit;
         if (opmode == Cipher.ENCRYPT_MODE) {
-            plaintext = ByteBuffer.wrap(input);
-            limit = plaintext.remaining() / Long.BYTES;
+            long x = ByteBuffer.wrap(input).getLong();
 
-            ciphertext = ByteBuffer.allocate(plaintext.remaining());
-
-            for (int i = 0; i < limit; i++) {
-                long x = plaintext.getLong();
-
-                long cipher = f(0, 0);
-                for (int j = 1; j <= d; j++) {
-                    long xI = (x >> (d - j)) & 1;
-                    cipher += (2 * xI - 1) * f(j, x);
-                }
-
-                ciphertext.putLong(cipher);
+            BigInteger cipher = f(0, 0);
+            for (int j = 1; j <= d; j++) {
+                int xI = (int) ((x >> (d - j)) & 1);
+                cipher = BigInteger.valueOf(2 * xI - 1).multiply(f(j, x)).add(cipher);
             }
-            ciphertext.position(0);
 
-            System.arraycopy(ciphertext.array(), 0, output, 0, inputLen);
+            byte[] cipherArray = cipher.toByteArray();
+            System.arraycopy(cipherArray, 0, output, output.length - cipherArray.length, cipherArray.length);
+
         } else if (opmode == Cipher.DECRYPT_MODE) {
-            ciphertext = ByteBuffer.wrap(input);
-            limit = ciphertext.remaining() / Long.BYTES;
+            BigInteger c = new BigInteger(input);
 
-            plaintext = ByteBuffer.allocate(ciphertext.remaining());
+            BigInteger a = f(0, 0);
+            long x = c.compareTo(a) < 0 ? 0 : 1L << (d - 1);
 
-            for (int i = 0; i < limit; i++) {
-                long c = ciphertext.getLong();
-
-                long a = f(0, 0);
-                long plain = c < a ? 0 : 1L << (d - 1);
-
-                for (int j = 2; j <= d; j++) {
-                    long xI = (plain >> (d - j + 1)) & 1;
-                    a += (2 * xI - 1) * f(j - 1, plain);
-                    if (c >= a) {
-                        plain |= 1L << (d - j);
-                    }
+            for (int j = 2; j <= d; j++) {
+                int xI = (int) ((x >> (d - j + 1)) & 1);
+                a = BigInteger.valueOf(2 * xI - 1).multiply(f(j - 1, x)).add(a);
+                if (c.compareTo(a) >= 0) {
+                    x |= 1L << (d - j);
                 }
-
-                long x0 = plain & 1;
-                a += (2 * x0 - 1) * f(d, plain);
-                if (c != a) plain = Long.MIN_VALUE;
-
-                plaintext.putLong(plain);
             }
 
-            System.arraycopy(plaintext.array(), 0, output, 0, inputLen);
+
+            long x0 = x & 1;
+            a = BigInteger.valueOf(2 * x0 - 1).multiply(f(d, x)).add(a);
+
+            if (c.compareTo(a) != 0) x = Long.MIN_VALUE; // Maybe remove if Mondrian does change encrypted values
+
+            System.arraycopy(ByteBuffer.allocate(Long.BYTES).putLong(x).array(), 0, output, 0, output.length);
         }
 
         return inputLen;
@@ -177,7 +169,7 @@ public class FOPECipher extends CipherSpi implements EngineAutoBindable {
         return engineUpdate(input, inputOffset, inputLen, output, outputOffset);
     }
 
-    private long f(int i, long x) {
+    private BigInteger f(int i, long x) {
         try {
             // Include only i most significant bits
             int shift = d - i;
@@ -188,19 +180,12 @@ public class FOPECipher extends CipherSpi implements EngineAutoBindable {
             md.update(kBytes);
             md.update(ByteBuffer.allocate(Long.BYTES).putLong(x).array());
 
-            byte[] hash = md.digest();
-
-            // Convert to big integer
-            BigInteger bi = new BigInteger(hash);
-
-            BigInteger modulus = BigInteger.valueOf(supLimitF[i] - infLimitF[i]);
-
-            // Calculate function value
-            return  bi.mod(modulus).add(BigInteger.valueOf(infLimitF[i])).longValue();
-
-        } catch (NoSuchAlgorithmException e) {
+            BigInteger bi = new BigInteger(md.digest());
+            return bi.mod(supLimitF[i].subtract(infLimitF[i])).add(infLimitF[i]);
+        } catch (NoSuchAlgorithmException | ArithmeticException e) {
             e.printStackTrace();
-            return -1;
+            return BigInteger.ONE.multiply(BigInteger.valueOf(-1));
         }
     }
+
 }

@@ -4,25 +4,20 @@ import crypto.EngineAutoBindable;
 
 import javax.crypto.KeyGeneratorSpi;
 import javax.crypto.SecretKey;
+import java.math.BigDecimal;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.SecureRandom;
 import java.security.spec.AlgorithmParameterSpec;
 
 public class FOPEKeyGenerator extends KeyGeneratorSpi implements EngineAutoBindable {
 
-    private SecureRandom secureRandom;
-    private int tau;
-    private int d;
-
-    public FOPEKeyGenerator() {
-        secureRandom = new SecureRandom();
-        tau = FOPEAlgorithmParameterSpec.DEFAULT_TAU;
-        d = FOPEAlgorithmParameterSpec.DEFAULT_D;
-    }
+    private SecureRandom secureRandom = new SecureRandom();
+    private int tau = FOPEAlgorithmParameterSpec.DEFAULT_TAU;
+    private int d = FOPEAlgorithmParameterSpec.DEFAULT_D;
 
     @Override
     public String getBind() {
-        return "KeyGenerator.FOPE";
+        return "KeyGenerator." + FOPECipher.ALGORITHM_NAME;
     }
 
     @Override
@@ -32,7 +27,8 @@ public class FOPEKeyGenerator extends KeyGeneratorSpi implements EngineAutoBinda
 
     @Override
     protected void engineInit(AlgorithmParameterSpec algorithmParameterSpec, SecureRandom secureRandom) throws InvalidAlgorithmParameterException {
-        if (!(algorithmParameterSpec instanceof FOPEAlgorithmParameterSpec)) throw new InvalidAlgorithmParameterException();
+        if (!(algorithmParameterSpec instanceof FOPEAlgorithmParameterSpec))
+            throw new InvalidAlgorithmParameterException();
         tau = ((FOPEAlgorithmParameterSpec) algorithmParameterSpec).getTau();
         d = ((FOPEAlgorithmParameterSpec) algorithmParameterSpec).getD();
         engineInit(secureRandom);
@@ -45,11 +41,11 @@ public class FOPEKeyGenerator extends KeyGeneratorSpi implements EngineAutoBinda
 
     @Override
     protected SecretKey engineGenerateKey() {
-        double alpha = 0.15 + 0.35 * secureRandom.nextDouble();
+        double alpha = 0.5 * secureRandom.nextDouble();
         double beta = 1.0 - alpha;
-        double e = (1 + secureRandom.nextDouble()) * alpha / 2;
-        long n = (long) Math.ceil((double) tau / (beta * Math.pow(e, d)));
-        long k = secureRandom.nextLong() & Long.MAX_VALUE; // k can only be positive
+        double e = secureRandom.nextDouble() * alpha;
+        double n = Math.ceil(tau / (beta * BigDecimal.valueOf(e).pow(d).doubleValue()));
+        long k = secureRandom.nextLong();
 
         return new FOPESecretKeySpec.Raw().setN(n).setAlpha(alpha).setE(e).setK(k).build();
     }
