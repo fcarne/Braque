@@ -23,13 +23,13 @@ public class ACNFCipher extends CipherSpi implements EngineAutoBindable {
     @Override
     protected void engineSetMode(String mode) throws NoSuchAlgorithmException {
         //TODO
-        throw new NoSuchAlgorithmException("FOPE does not support different modes");
+        throw new NoSuchAlgorithmException("ACNF does not support different modes");
     }
 
     @Override
     protected void engineSetPadding(String padding) throws NoSuchPaddingException {
         //TODO
-        throw new NoSuchPaddingException("FOPE does not support different padding mechanisms");
+        throw new NoSuchPaddingException("ACNF does not support different padding mechanisms");
     }
 
     @Override
@@ -56,7 +56,7 @@ public class ACNFCipher extends CipherSpi implements EngineAutoBindable {
     protected void engineInit(int opmode, Key key, SecureRandom secureRandom) throws InvalidKeyException {
         this.opmode = opmode;
         if (key instanceof ACNFSecretKeySpec) {
-        } else throw new InvalidKeyException("The key used is not a FOPE Key");
+        } else throw new InvalidKeyException("The key used is not a ACNF Key");
     }
 
     @Override

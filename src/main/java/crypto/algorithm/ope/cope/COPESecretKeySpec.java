@@ -15,7 +15,7 @@ public class COPESecretKeySpec extends SecretKeySpec {
     public Raw decodeKey() {
         ByteBuffer buffer = ByteBuffer.wrap(getEncoded());
 
-        long p = buffer.getLong();
+        double p = buffer.getDouble();
         byte[] seed = new byte[24];
         buffer.get(seed);
         return new Raw().setP(p).setSeed(seed);
@@ -24,14 +24,14 @@ public class COPESecretKeySpec extends SecretKeySpec {
 
     public static class Raw {
 
-        private long p;
+        private double p;
         private byte[] seed = new byte[24];
 
-        public long getP() {
+        public double getP() {
             return p;
         }
 
-        public Raw setP(long p) {
+        public Raw setP(double p) {
             this.p = p;
             return this;
         }
@@ -47,7 +47,7 @@ public class COPESecretKeySpec extends SecretKeySpec {
 
         public byte[] encode() {
             ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES + seed.length);
-            buffer.putLong(p);
+            buffer.putDouble(p);
             buffer.put(seed);
             return buffer.array();
         }

@@ -1,21 +1,22 @@
-package crypto.algorithm.ope.cope;
+package crypto.algorithm.ope.gacd;
 
 import crypto.EngineAutoBindable;
 
 import javax.crypto.KeyGeneratorSpi;
 import javax.crypto.SecretKey;
+import java.math.BigInteger;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.SecureRandom;
 import java.security.spec.AlgorithmParameterSpec;
 
-public class COPEKeyGenerator extends KeyGeneratorSpi implements EngineAutoBindable {
+public class GACDKeyGenerator extends KeyGeneratorSpi implements EngineAutoBindable {
 
     private SecureRandom secureRandom = new SecureRandom();
-    private long d = COPEAlgorithmParameterSpec.DEFAULT_D;
+    private int lambda = GACDAlgorithmParameterSpec.DEFAULT_LAMBDA;
 
     @Override
     public String getBind() {
-        return "KeyGenerator." + COPECipher.ALGORITHM_NAME;
+        return "KeyGenerator." + GACDCipher.ALGORITHM_NAME;
     }
 
     @Override
@@ -25,22 +26,21 @@ public class COPEKeyGenerator extends KeyGeneratorSpi implements EngineAutoBinda
 
     @Override
     protected void engineInit(AlgorithmParameterSpec algorithmParameterSpec, SecureRandom secureRandom) throws InvalidAlgorithmParameterException {
-        if (!(algorithmParameterSpec instanceof COPEAlgorithmParameterSpec))
+        if (!(algorithmParameterSpec instanceof GACDAlgorithmParameterSpec))
             throw new InvalidAlgorithmParameterException();
-        this.d = ((COPEAlgorithmParameterSpec)algorithmParameterSpec).getD();
+        lambda = ((GACDAlgorithmParameterSpec) algorithmParameterSpec).getLambda();
         engineInit(secureRandom);
     }
 
     @Override
-    protected void engineInit(int size, SecureRandom secureRandom) {
+    protected void engineInit(int i, SecureRandom secureRandom) {
         engineInit(secureRandom);
     }
 
     @Override
     protected SecretKey engineGenerateKey() {
-        double p = d;
-        byte[] seed = secureRandom.generateSeed(24);
-        return new COPESecretKeySpec.Raw().setP(p).setSeed(seed).build();
+        BigInteger k = new BigInteger(lambda, secureRandom).mod(BigInteger.TWO.pow(lambda + 1).subtract(BigInteger.TWO.pow(lambda))).add(BigInteger.TWO.pow(lambda));
+        return new GACDSecretKeySpec.Raw().setK(k).build();
     }
 
 }

@@ -18,9 +18,9 @@ public class ACNFSecretKeySpec extends SecretKeySpec {
 
     public Raw decodeKey() throws InvalidKeyException {
         ByteBuffer buffer = ByteBuffer.wrap(getEncoded());
-        int size = buffer.remaining();
+        int size = buffer.remaining() * 8;
 
-        if(size % DEFAULT_SIZE != 0) throw new InvalidKeyException();
+        if (size % DEFAULT_SIZE != 0) throw new InvalidKeyException();
 
         byte l = buffer.get();
         byte c = buffer.get();
@@ -30,12 +30,12 @@ public class ACNFSecretKeySpec extends SecretKeySpec {
             a[i] = buffer.get();
         }
 
-        int ratiosSize = buffer.remaining() / (2 * Short.BYTES);
+        int ratiosLength = getRatiosLength(size);
 
-        short[] p = new short[ratiosSize];
-        short[] q = new short[ratiosSize];
+        short[] p = new short[ratiosLength];
+        short[] q = new short[ratiosLength];
 
-        for (int i = 0; i < ratiosSize; i++) {
+        for (int i = 0; i < ratiosLength; i++) {
             p[i] = buffer.getShort();
             q[i] = buffer.getShort();
         }
@@ -51,12 +51,13 @@ public class ACNFSecretKeySpec extends SecretKeySpec {
         byte[] a = new byte[10];
 
         public Raw(int size) throws InvalidKeyException {
-            if (size <= 0 || size % DEFAULT_SIZE != 0) throw new InvalidKeyException("Key size must be a multiple of 256");
+            if (size <= 0 || size % DEFAULT_SIZE != 0)
+                throw new InvalidKeyException("Key size must be a multiple of 256");
 
-            int ratiosSize = (size - Byte.BYTES - Byte.BYTES * 12) / (2 * Short.BYTES);
+            int ratiosLength = getRatiosLength(size);
 
-            p = new short[ratiosSize];
-            q = new short[ratiosSize];
+            p = new short[ratiosLength];
+            q = new short[ratiosLength];
         }
 
         public byte getL() {
@@ -107,10 +108,13 @@ public class ACNFSecretKeySpec extends SecretKeySpec {
         }
 
         public byte[] encode() {
-            ByteBuffer buffer = ByteBuffer.allocate(Short.BYTES * (1 + p.length + q.length) + Byte.BYTES * 10);
+            ByteBuffer buffer = ByteBuffer.allocate(Short.BYTES * (p.length + q.length) + Byte.BYTES * 12);
 
-            buffer.putShort(l);
-            buffer.putShort(c);
+            System.out.println(buffer.remaining());
+            System.out.println(p.length);
+
+            buffer.put(l);
+            buffer.put(c);
 
             for (byte b : a) {
                 buffer.put(b);
@@ -126,6 +130,10 @@ public class ACNFSecretKeySpec extends SecretKeySpec {
         public ACNFSecretKeySpec build() {
             return new ACNFSecretKeySpec(this);
         }
+    }
+
+    public static int getRatiosLength(int size) {
+        return (size / 8 - Byte.BYTES * 12) / (2 * Short.BYTES);
     }
 
 }

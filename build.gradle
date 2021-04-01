@@ -16,6 +16,9 @@ dependencies {
     // Reflections
     implementation 'org.reflections:reflections:0.9.12'
 
+    implementation 'org.apache.commons:commons-math3:3.6.1'
+
+
     // JSON Parser
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.12.2'
 
@@ -23,7 +26,6 @@ dependencies {
     implementation 'com.sparkjava:spark-core:2.9.3'
     implementation 'org.slf4j:slf4j-api:1.7.30'
     implementation 'org.slf4j:slf4j-simple:1.7.30'
-
 
     // Picocli Command Line Parser
     implementation 'info.picocli:picocli:4.6.1'

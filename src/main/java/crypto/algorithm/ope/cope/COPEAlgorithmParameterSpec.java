@@ -4,32 +4,32 @@ import java.security.spec.AlgorithmParameterSpec;
 
 public class COPEAlgorithmParameterSpec implements AlgorithmParameterSpec {
     public static final long DEFAULT_D = 256;
-    public static final int DEFAULT_K = 16;
+    public static final int DEFAULT_BETAS = 8;
 
     private final long d;
-    private final int k;
+    private final int betas;
 
 
-    public COPEAlgorithmParameterSpec(long d, int k) {
+    public COPEAlgorithmParameterSpec(long d, int betas) {
         this.d = d;
-        this.k = k;
+        this.betas = betas;
     }
     public COPEAlgorithmParameterSpec(long d) {
-        this(d, DEFAULT_K);
+        this(d, DEFAULT_BETAS);
     }
     public COPEAlgorithmParameterSpec(int k) {
         this(DEFAULT_D, k);
     }
 
     public COPEAlgorithmParameterSpec() {
-        this(DEFAULT_D, DEFAULT_K);
+        this(DEFAULT_D, DEFAULT_BETAS);
     }
 
     public long getD() {
         return d;
     }
 
-    public int getK() {
-        return k;
+    public int getBetas() {
+        return betas;
     }
 }

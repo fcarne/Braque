@@ -5,7 +5,6 @@ import crypto.EngineAutoBindable;
 import javax.crypto.Cipher;
 import javax.crypto.CipherSpi;
 import javax.crypto.NoSuchPaddingException;
-import javax.crypto.ShortBufferException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
@@ -110,17 +109,12 @@ public class FOPECipher extends CipherSpi implements EngineAutoBindable {
         } else if (opmode == Cipher.DECRYPT_MODE) {
             output = new byte[Long.BYTES];
         }
-        try {
-            engineUpdate(input, inputOffset, inputLen, output, 0);
-            return output;
-        } catch (ShortBufferException e) {
-            // never thrown
-            throw new ProviderException("Unexpected exception", e);
-        }
+        engineUpdate(input, inputOffset, inputLen, output, 0);
+        return output;
     }
 
     @Override
-    protected int engineUpdate(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) throws ShortBufferException {
+    protected int engineUpdate(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) {
         if (opmode == Cipher.ENCRYPT_MODE) {
             long x = ByteBuffer.wrap(input).getLong();
 
@@ -165,7 +159,7 @@ public class FOPECipher extends CipherSpi implements EngineAutoBindable {
     }
 
     @Override
-    protected int engineDoFinal(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) throws ShortBufferException {
+    protected int engineDoFinal(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) {
         return engineUpdate(input, inputOffset, inputLen, output, outputOffset);
     }
 

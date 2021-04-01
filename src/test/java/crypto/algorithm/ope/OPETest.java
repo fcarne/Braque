@@ -78,5 +78,19 @@ public abstract class OPETest {
     }
 
     @RepeatedTest(value = 50, name = RepeatedTest.LONG_DISPLAY_NAME)
-    public abstract void customKey() throws BadPaddingException, IllegalBlockSizeException, InvalidKeyException;
+    public void customKey() throws BadPaddingException, IllegalBlockSizeException, InvalidKeyException {
+        key = buildCustomKey();
+
+        long x = new Random().nextInt(255);
+
+        c.init(Cipher.ENCRYPT_MODE, key);
+        byte[] encrypted = c.doFinal(ByteBuffer.allocate(Long.BYTES).putLong(x).array());
+
+        c.init(Cipher.DECRYPT_MODE, key);
+        byte[] decrypted = c.doFinal(encrypted);
+
+        assertEquals(x, ByteBuffer.wrap(decrypted).getLong());
+    }
+
+    protected abstract SecretKey buildCustomKey();
 }
