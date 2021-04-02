@@ -14,17 +14,23 @@ public class FOPESecretKeySpec extends SecretKeySpec {
 
     public Raw decodeKey() {
         ByteBuffer buffer = ByteBuffer.wrap(getEncoded());
-        if (buffer.remaining() != (3 * Double.BYTES + Long.BYTES)) return null;
 
-        return new Raw().setN(buffer.getDouble()).setAlpha(buffer.getDouble()).setE(buffer.getDouble()).setK(buffer.getLong());
+        double n = buffer.getDouble();
+        double alpha = buffer.getDouble();
+        double e = buffer.getDouble();
+        byte[] k = new byte[7];
+        buffer.get(k);
+        byte d = buffer.get();
 
+        return new Raw().setN(n).setAlpha(alpha).setE(e).setK(k).setD(d);
     }
 
     public static class Raw {
         private double n;
         private double alpha;
         private double e;
-        private long k;
+        private byte[] k = new byte[7];
+        private byte d;
 
         public Raw setN(double n) {
             this.n = n;
@@ -41,8 +47,17 @@ public class FOPESecretKeySpec extends SecretKeySpec {
             return this;
         }
 
-        public Raw setK(long k) {
+        public Raw setK(byte[] k) {
             this.k = k;
+            return this;
+        }
+
+        public byte getD() {
+            return d;
+        }
+
+        public Raw setD(byte d) {
+            this.d = d;
             return this;
         }
 
@@ -62,18 +77,13 @@ public class FOPESecretKeySpec extends SecretKeySpec {
             return e;
         }
 
-        public long getK() {
+        public byte[] getK() {
             return k;
         }
 
         public byte[] encode() {
-            ByteBuffer buffer = ByteBuffer.allocate(3 * Double.BYTES + Long.BYTES);
-
-            buffer.putDouble(n);
-            buffer.putDouble(alpha);
-            buffer.putDouble(e);
-            buffer.putLong(k);
-
+            ByteBuffer buffer = ByteBuffer.allocate(3 * Double.BYTES + Byte.BYTES * 8);
+            buffer.putDouble(n).putDouble(alpha).putDouble(e).put(k).put(d);
             return buffer.array();
         }
 

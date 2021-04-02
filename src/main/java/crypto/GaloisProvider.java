@@ -8,10 +8,10 @@ import java.security.Provider;
 import java.security.Security;
 
 public class GaloisProvider extends Provider {
-    public static final String NAME = "Braque Custom Provider";
+    public static final String NAME = "Galois Custom Provider";
 
     public GaloisProvider() {
-        super(NAME, "1.0", "Braque provider v1.0");
+        super(NAME, "1.0", "Galois provider v1.0");
 
         autoBind(this.getClass().getPackageName());
     }

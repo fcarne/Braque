@@ -18,13 +18,13 @@ public class FOPECipher extends CipherSpi implements EngineAutoBindable {
 
     private int opmode;
 
-    private byte[] kBytes;
-
-    private int d = FOPEAlgorithmParameterSpec.DEFAULT_D;
-    private int nBytesLength;
+    private byte d;
+    private byte[] k;
 
     private BigInteger[] infLimitF;
     private BigInteger[] supLimitF;
+
+    private int nBytesLength;
 
     @Override
     public String getBind() {
@@ -33,12 +33,12 @@ public class FOPECipher extends CipherSpi implements EngineAutoBindable {
 
     @Override
     protected void engineSetMode(String mode) throws NoSuchAlgorithmException {
-        throw new NoSuchAlgorithmException("FOPE does not support different modes");
+        throw new NoSuchAlgorithmException(ALGORITHM_NAME + " does not support different modes");
     }
 
     @Override
     protected void engineSetPadding(String padding) throws NoSuchPaddingException {
-        throw new NoSuchPaddingException("FOPE does not support different padding mechanisms");
+        throw new NoSuchPaddingException(ALGORITHM_NAME + " does not support different padding mechanisms");
     }
 
     @Override
@@ -71,6 +71,8 @@ public class FOPECipher extends CipherSpi implements EngineAutoBindable {
             BigDecimal beta = BigDecimal.valueOf(raw.getBeta());
             BigDecimal n = BigDecimal.valueOf((raw.getN()));
             BigDecimal e = BigDecimal.valueOf(raw.getE());
+            k = raw.getK();
+            d = raw.getD();
 
             infLimitF = new BigInteger[d + 1];
             supLimitF = new BigInteger[d + 1];
@@ -82,17 +84,13 @@ public class FOPECipher extends CipherSpi implements EngineAutoBindable {
             }
             infLimitF[d] = BigInteger.ONE;
 
-            kBytes = ByteBuffer.allocate(Long.BYTES).putLong(raw.getK()).array();
 
             nBytesLength = n.toBigInteger().toByteArray().length;
         } else throw new InvalidKeyException("The key used is not a FOPE Key");
     }
 
     @Override
-    protected void engineInit(int opmode, Key key, AlgorithmParameterSpec algorithmParameterSpec, SecureRandom secureRandom) throws InvalidKeyException, InvalidAlgorithmParameterException {
-        if (algorithmParameterSpec instanceof FOPEAlgorithmParameterSpec) {
-            d = ((FOPEAlgorithmParameterSpec) algorithmParameterSpec).getD();
-        } else throw new InvalidAlgorithmParameterException();
+    protected void engineInit(int opmode, Key key, AlgorithmParameterSpec algorithmParameterSpec, SecureRandom secureRandom) throws InvalidKeyException {
         engineInit(opmode, key, secureRandom);
     }
 
@@ -171,7 +169,7 @@ public class FOPECipher extends CipherSpi implements EngineAutoBindable {
 
             // Calculate hash
             MessageDigest md = MessageDigest.getInstance("SHA-256");
-            md.update(kBytes);
+            md.update(k);
             md.update(ByteBuffer.allocate(Long.BYTES).putLong(x).array());
 
             BigInteger bi = new BigInteger(md.digest());

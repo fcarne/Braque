@@ -12,7 +12,7 @@ import java.security.spec.AlgorithmParameterSpec;
 public class GACDKeyGenerator extends KeyGeneratorSpi implements EngineAutoBindable {
 
     private SecureRandom secureRandom = new SecureRandom();
-    private int lambda = GACDAlgorithmParameterSpec.DEFAULT_LAMBDA;
+    private GACDAlgorithmParameterSpec parameterSpec = new GACDAlgorithmParameterSpec();
 
     @Override
     public String getBind() {
@@ -28,7 +28,7 @@ public class GACDKeyGenerator extends KeyGeneratorSpi implements EngineAutoBinda
     protected void engineInit(AlgorithmParameterSpec algorithmParameterSpec, SecureRandom secureRandom) throws InvalidAlgorithmParameterException {
         if (!(algorithmParameterSpec instanceof GACDAlgorithmParameterSpec))
             throw new InvalidAlgorithmParameterException();
-        lambda = ((GACDAlgorithmParameterSpec) algorithmParameterSpec).getLambda();
+        parameterSpec = (GACDAlgorithmParameterSpec) algorithmParameterSpec;
         engineInit(secureRandom);
     }
 
@@ -39,6 +39,7 @@ public class GACDKeyGenerator extends KeyGeneratorSpi implements EngineAutoBinda
 
     @Override
     protected SecretKey engineGenerateKey() {
+        int lambda = parameterSpec.getLambda();
         BigInteger k = new BigInteger(lambda, secureRandom).mod(BigInteger.TWO.pow(lambda + 1).subtract(BigInteger.TWO.pow(lambda))).add(BigInteger.TWO.pow(lambda));
         return new GACDSecretKeySpec.Raw().setK(k).build();
     }

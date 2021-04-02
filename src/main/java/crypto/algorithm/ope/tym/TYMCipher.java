@@ -1,4 +1,4 @@
-package crypto.algorithm.ope.gacd;
+package crypto.algorithm.ope.tym;
 
 import crypto.EngineAutoBindable;
 
@@ -7,18 +7,16 @@ import javax.crypto.CipherSpi;
 import javax.crypto.NoSuchPaddingException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.security.*;
 import java.security.spec.AlgorithmParameterSpec;
 
-public class GACDCipher extends CipherSpi implements EngineAutoBindable {
+public class TYMCipher extends CipherSpi implements EngineAutoBindable {
 
-    public static final String ALGORITHM_NAME = "CommonDivisor";
+    public static final String ALGORITHM_NAME = "TYM";
 
     private int opmode;
-    private SecureRandom secureRandom;
-
-    private BigInteger k;
 
     @Override
     public String getBind() {
@@ -58,11 +56,9 @@ public class GACDCipher extends CipherSpi implements EngineAutoBindable {
     @Override
     protected void engineInit(int opmode, Key key, SecureRandom secureRandom) throws InvalidKeyException {
         this.opmode = opmode;
-        this.secureRandom = secureRandom;
-        if (key instanceof GACDSecretKeySpec) {
-            GACDSecretKeySpec.Raw raw = ((GACDSecretKeySpec) key).decodeKey();
-            k = raw.getK();
-        } else throw new InvalidKeyException("The key used is not a GACD Key");
+        if (key instanceof TYMSecretKeySpec) {
+            TYMSecretKeySpec.Raw raw = ((TYMSecretKeySpec) key).decodeKey();
+        } else throw new InvalidKeyException("The key used is not a FOPE Key");
     }
 
     @Override
@@ -79,7 +75,7 @@ public class GACDCipher extends CipherSpi implements EngineAutoBindable {
     protected byte[] engineUpdate(byte[] input, int inputOffset, int inputLen) {
         byte[] output = null;
         if (opmode == Cipher.ENCRYPT_MODE) {
-            output = new byte[k.toByteArray().length + inputLen + 1];
+            output = new byte[0];
         } else if (opmode == Cipher.DECRYPT_MODE) {
             output = new byte[Long.BYTES];
         }
@@ -90,19 +86,7 @@ public class GACDCipher extends CipherSpi implements EngineAutoBindable {
     @Override
     protected int engineUpdate(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) {
         if (opmode == Cipher.ENCRYPT_MODE) {
-            long m = ByteBuffer.wrap(input).getLong();
-
-            BigInteger kPow = BigDecimal.valueOf(Math.pow(k.doubleValue(), 3.0 / 4)).toBigInteger();
-            BigInteger r = new BigInteger(k.bitLength(), secureRandom).mod(k.subtract(BigInteger.TWO.multiply(kPow))).add(kPow);
-            BigInteger c = BigInteger.valueOf(m).multiply(k).add(r);
-
-            byte[] cipherArray = c.toByteArray();
-            System.arraycopy(cipherArray, 0, output, output.length - cipherArray.length, cipherArray.length);
         } else if (opmode == Cipher.DECRYPT_MODE) {
-            BigInteger c = new BigInteger(input);
-            long m = c.divide(k).longValue();
-
-            System.arraycopy(ByteBuffer.allocate(Long.BYTES).putLong(m).array(), 0, output, 0, output.length);
         }
 
         return inputLen;

@@ -1,12 +1,11 @@
 import crypto.GaloisProvider;
 import crypto.algorithm.ope.fope.FOPECipher;
-import crypto.algorithm.ope.gacd.GACDAlgorithmParameterSpec;
 import crypto.algorithm.ope.gacd.GACDCipher;
+import crypto.algorithm.ope.tym.TYMCipher;
 
 import javax.crypto.*;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
-import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
@@ -16,10 +15,9 @@ public class Galois {
     public static void main(String[] args) {
         GaloisProvider.add();
 
-        String algo = GACDCipher.ALGORITHM_NAME;
+        String algo = TYMCipher.ALGORITHM_NAME;
         try {
             KeyGenerator keyGenerator = KeyGenerator.getInstance(algo);
-            keyGenerator.init(new GACDAlgorithmParameterSpec());
 
             SecretKey key = keyGenerator.generateKey();
 
@@ -39,9 +37,9 @@ public class Galois {
             byte[] decrypted = c.doFinal(encrypted);
 
             System.out.println("Value: " + x);
-            System.out.println("Encrypted: " + new BigInteger(encrypted));
+            //System.out.println("Encrypted: " + new BigInteger(encrypted));
             System.out.println("Decrypted: " + ByteBuffer.wrap(decrypted).getLong());
-        } catch (NoSuchPaddingException | NoSuchAlgorithmException | InvalidKeyException | BadPaddingException | IllegalBlockSizeException | InvalidAlgorithmParameterException e) {
+        } catch (NoSuchPaddingException | NoSuchAlgorithmException | InvalidKeyException | BadPaddingException | IllegalBlockSizeException e) {
             e.printStackTrace();
         }
 

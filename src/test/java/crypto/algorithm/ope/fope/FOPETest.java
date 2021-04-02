@@ -16,6 +16,6 @@ public class FOPETest extends OPETest {
         return new FOPESecretKeySpec.Raw().setN(Math.ceil(16 / (0.75 * Math.pow(0.25, 8))))
                 .setAlpha(0.25)
                 .setE(0.25)
-                .setK(Long.MAX_VALUE).build();
+                .setK(new byte[]{0, 0, 0, 0, 0, 0, 0}).setD((byte) 8).build();
     }
 }

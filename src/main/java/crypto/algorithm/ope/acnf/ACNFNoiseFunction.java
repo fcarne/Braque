@@ -4,9 +4,9 @@ import org.apache.commons.math3.analysis.UnivariateFunction;
 
 public class ACNFNoiseFunction implements UnivariateFunction {
 
-    byte[] a;
+    double[] a;
 
-    public ACNFNoiseFunction(byte[] a) {
+    public ACNFNoiseFunction(double[] a) {
         if (a.length != 10) throw new IllegalArgumentException();
         this.a = a;
     }

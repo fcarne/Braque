@@ -11,9 +11,7 @@ public class GaloisTerminal implements Runnable {
 
     @Override
     public void run() {
-        // The business logic of the command goes here...
-        // In this case, code for generation of ASCII art graphics
-        // (omitted for the sake of brevity).
+        System.out.println("Hello World");
     }
 
     public static void main(String[] args) {
