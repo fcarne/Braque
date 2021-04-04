@@ -13,7 +13,6 @@ import java.security.InvalidKeyException;
 import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class GACDTest extends OPETest {
 

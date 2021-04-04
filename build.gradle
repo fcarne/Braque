@@ -7,6 +7,7 @@ version '1.0-SNAPSHOT'
 
 repositories {
     mavenCentral()
+    maven { url "https://nexus.bedatadriven.com/content/groups/public" }
 }
 
 dependencies {
@@ -19,6 +20,9 @@ dependencies {
 
     // Statistical distribution
     implementation 'org.apache.commons:commons-math3:3.6.1'
+    implementation ('org.renjin:renjin-script-engine:3.5-beta43') {
+        exclude group: 'org.slf4j'
+    }
 
 
     // JSON Parser

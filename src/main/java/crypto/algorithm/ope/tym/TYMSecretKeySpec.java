@@ -15,18 +15,18 @@ public class TYMSecretKeySpec extends SecretKeySpec {
     public Raw decodeKey() {
         ByteBuffer buffer = ByteBuffer.wrap(getEncoded());
 
-        byte[] k = new byte[Raw.LAMBDA / 8];
+        byte[] k = new byte[16];
         buffer.get(k);
         int a = buffer.getInt();
         int m = buffer.getInt();
-        TYMInterval intervalM = new TYMInterval(buffer.getDouble(), buffer.getDouble());
+        byte[] intervalBytes = new byte[TYMInterval.BYTES];
+        buffer.get(intervalBytes);
 
-        return new Raw().setK(k).setA(a).setM(m).setIntervalM(intervalM);
+        return new Raw().setK(k).setA(a).setM(m).setIntervalM(TYMInterval.fromByteArray(intervalBytes));
     }
 
     public static class Raw {
-        public static final int LAMBDA = 64;
-        private byte[] k = new byte[LAMBDA / 8];
+        private byte[] k = new byte[16];
         private int a;
         private int m;
         private TYMInterval intervalM;
@@ -69,8 +69,8 @@ public class TYMSecretKeySpec extends SecretKeySpec {
         }
 
         public byte[] encode() {
-            ByteBuffer buffer = ByteBuffer.allocate(2 * Double.BYTES + k.length + 2 * Integer.BYTES);
-            buffer.put(k).putInt(a).putInt(m).putDouble(intervalM.inf).putDouble(intervalM.sup);
+            ByteBuffer buffer = ByteBuffer.allocate(k.length + 2 * Integer.BYTES + TYMInterval.BYTES);
+            buffer.put(k).putInt(a).putInt(m).put(intervalM.toByteArray());
             return buffer.array();
         }
 

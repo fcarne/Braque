@@ -4,22 +4,14 @@ import java.security.spec.AlgorithmParameterSpec;
 
 public class FOPEAlgorithmParameterSpec implements AlgorithmParameterSpec {
 
-    public static final int DEFAULT_TAU = 16;
-    public static final byte DEFAULT_D = 8;
+    private static final int DEFAULT_TAU = 16;
+    private static final byte DEFAULT_D = 8;
 
-    private final int tau;
-    private final byte d;
+    private int tau;
+    private byte d;
 
     public FOPEAlgorithmParameterSpec() {
         this(DEFAULT_TAU, DEFAULT_D);
-    }
-
-    public FOPEAlgorithmParameterSpec(int tau) {
-        this(tau, DEFAULT_D);
-    }
-
-    public FOPEAlgorithmParameterSpec(byte d) {
-        this(DEFAULT_TAU, d);
     }
 
     public FOPEAlgorithmParameterSpec(int tau, byte d) {
@@ -31,7 +23,17 @@ public class FOPEAlgorithmParameterSpec implements AlgorithmParameterSpec {
         return tau;
     }
 
+    public void setTau(int tau) {
+        if (tau > 0)
+            this.tau = tau;
+    }
+
     public byte getD() {
         return d;
+    }
+
+    public void setD(byte d) {
+        if (d > 0)
+            this.d = d;
     }
 }

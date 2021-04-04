@@ -1,7 +1,6 @@
 package crypto.algorithm.ope.tym;
 
 import crypto.EngineAutoBindable;
-
 import org.apache.commons.math3.distribution.BinomialDistribution;
 
 import javax.crypto.KeyGeneratorSpi;
@@ -9,6 +8,7 @@ import javax.crypto.SecretKey;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.SecureRandom;
 import java.security.spec.AlgorithmParameterSpec;
+import java.util.Arrays;
 
 public class TYMKeyGenerator extends KeyGeneratorSpi implements EngineAutoBindable {
 
@@ -40,10 +40,9 @@ public class TYMKeyGenerator extends KeyGeneratorSpi implements EngineAutoBindab
 
     @Override
     protected SecretKey engineGenerateKey() {
-        byte[] k = new byte[TYMSecretKeySpec.Raw.LAMBDA / 8];
+        byte[] k = new byte[16];
         secureRandom.nextBytes(k);
         int a = -parameterSpec.getK() * parameterSpec.getTheta() - 1;
-
         TYMInterval intervalM = init(a);
 
         return new TYMSecretKeySpec.Raw().setK(k).setA(a).setM(parameterSpec.getM()).setIntervalM(intervalM).build();
@@ -54,10 +53,9 @@ public class TYMKeyGenerator extends KeyGeneratorSpi implements EngineAutoBindab
         int m = parameterSpec.getM();
         double p = 1 - Math.pow((1 - 1 / Math.sqrt(parameterSpec.getK())), 1.0 / theta);
 
-        double c1 = new BinomialDistribution(m - a, 1 - p).probability(m);
-        double c0 = new BinomialDistribution((int) (Math.pow(2, TYMSecretKeySpec.Raw.LAMBDA) * Math.pow(theta, 2) * (m - a - c1)), 1.0 / 2).probability(m);
-
-//TODO ?????
+        long c1 = new BinomialDistribution(m - a, 1 - p).sample();
+        long c0 = new BinomialDistribution((int) (Math.pow(2,
+                parameterSpec.getLambda()) * Math.pow(theta, 2) * (m - a - c1)), 1.0 / 2).sample();
 
         return new TYMInterval(c0, c1);
     }

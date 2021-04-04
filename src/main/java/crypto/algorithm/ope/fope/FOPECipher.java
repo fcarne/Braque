@@ -124,7 +124,6 @@ public class FOPECipher extends CipherSpi implements EngineAutoBindable {
 
             byte[] cipherArray = cipher.toByteArray();
             System.arraycopy(cipherArray, 0, output, output.length - cipherArray.length, cipherArray.length);
-
         } else if (opmode == Cipher.DECRYPT_MODE) {
             BigInteger c = new BigInteger(input);
 
@@ -138,7 +137,6 @@ public class FOPECipher extends CipherSpi implements EngineAutoBindable {
                     x |= 1L << (d - j);
                 }
             }
-
 
             long x0 = x & 1;
             a = BigInteger.valueOf(2 * x0 - 1).multiply(f(d, x)).add(a);
