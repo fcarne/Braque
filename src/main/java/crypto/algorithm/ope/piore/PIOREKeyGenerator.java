@@ -1,22 +1,21 @@
-package crypto.algorithm.ope.fope;
+package crypto.algorithm.ope.piore;
 
 import crypto.EngineAutoBindable;
 
 import javax.crypto.KeyGeneratorSpi;
 import javax.crypto.SecretKey;
-import java.math.BigDecimal;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.SecureRandom;
 import java.security.spec.AlgorithmParameterSpec;
 
-public class FOPEKeyGenerator extends KeyGeneratorSpi implements EngineAutoBindable {
+public class PIOREKeyGenerator extends KeyGeneratorSpi implements EngineAutoBindable {
 
     private SecureRandom secureRandom = new SecureRandom();
-    private FOPEAlgorithmParameterSpec parameterSpec = new FOPEAlgorithmParameterSpec();
+    private PIOREAlgorithmParameterSpec parameterSpec = new PIOREAlgorithmParameterSpec();
 
     @Override
     public String getBind() {
-        return "KeyGenerator." + FOPECipher.ALGORITHM_NAME;
+        return "KeyGenerator." + PIORECipher.ALGORITHM_NAME;
     }
 
     @Override
@@ -26,9 +25,9 @@ public class FOPEKeyGenerator extends KeyGeneratorSpi implements EngineAutoBinda
 
     @Override
     protected void engineInit(AlgorithmParameterSpec algorithmParameterSpec, SecureRandom secureRandom) throws InvalidAlgorithmParameterException {
-        if (!(algorithmParameterSpec instanceof FOPEAlgorithmParameterSpec))
+        if (!(algorithmParameterSpec instanceof PIOREAlgorithmParameterSpec))
             throw new InvalidAlgorithmParameterException();
-        parameterSpec = (FOPEAlgorithmParameterSpec) algorithmParameterSpec;
+        parameterSpec = (PIOREAlgorithmParameterSpec) algorithmParameterSpec;
         engineInit(secureRandom);
     }
 
@@ -39,14 +38,12 @@ public class FOPEKeyGenerator extends KeyGeneratorSpi implements EngineAutoBinda
 
     @Override
     protected SecretKey engineGenerateKey() {
-        double alpha = 0.5 * secureRandom.nextDouble();
-        double beta = 1.0 - alpha;
-        double e = secureRandom.nextDouble() * alpha;
-        double n = Math.ceil(parameterSpec.getTau()) / (beta * BigDecimal.valueOf(e).pow(parameterSpec.getD()).doubleValue());
-        byte[] k = new byte[7];
+        byte[] k = new byte[30];
         secureRandom.nextBytes(k);
 
-        return new FOPESecretKeySpec.Raw().setN(n).setAlpha(alpha).setE(e).setK(k).setD(parameterSpec.getD()).build();
+        byte m = (byte) (secureRandom.nextInt(24 - 12) + 12);
+
+        return new PIORESecretKeySpec.Raw().setK(k).setM(m).setN(parameterSpec.getN()).build();
     }
 
 }

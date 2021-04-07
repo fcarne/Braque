@@ -1,26 +1,20 @@
 import crypto.GaloisProvider;
-import crypto.algorithm.ope.fope.FOPEAlgorithmParameterSpec;
 import crypto.algorithm.ope.fope.FOPECipher;
-import crypto.algorithm.ope.gacd.GACDAlgorithmParameterSpec;
 import crypto.algorithm.ope.gacd.GACDCipher;
-import crypto.algorithm.ope.tym.TYMAlgorithmParameterSpec;
 import crypto.algorithm.ope.tym.TYMCipher;
-import crypto.algorithm.ope.tym.TYMSecretKeySpec;
+import crypto.algorithm.ope.piore.PIORECipher;
 
 import javax.crypto.*;
-import java.math.BigInteger;
 import java.nio.ByteBuffer;
-import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
-import java.util.Arrays;
 import java.util.Base64;
 
 public class Galois {
     public static void main(String[] args) {
         GaloisProvider.add();
 
-        String algo = TYMCipher.ALGORITHM_NAME;
+        String algo = FOPECipher.ALGORITHM_NAME;
         try {
             long x = 240;
             KeyGenerator keyGenerator = KeyGenerator.getInstance(algo);
@@ -32,14 +26,7 @@ public class Galois {
             Cipher c = Cipher.getInstance(algo);
 
             c.init(Cipher.ENCRYPT_MODE, key);
-            byte[] encrypted = new byte[0];
-
-            long start = System.currentTimeMillis();
-            for (int i = 0; i < 1500; i++) {
-                encrypted = c.doFinal(ByteBuffer.allocate(Long.BYTES).putLong(x).array());
-            }
-            System.out.println(Arrays.toString(encrypted));
-            System.out.println("TIME: " + (System.currentTimeMillis() - start + "ms"));
+            byte[] encrypted = c.doFinal(ByteBuffer.allocate(Long.BYTES).putLong(x).array());
 
             c.init(Cipher.DECRYPT_MODE, key);
             byte[] decrypted = c.doFinal(encrypted);

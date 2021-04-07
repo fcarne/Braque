@@ -33,7 +33,7 @@ public class GACDKeyGenerator extends KeyGeneratorSpi implements EngineAutoBinda
     }
 
     @Override
-    protected void engineInit(int i, SecureRandom secureRandom) {
+    protected void engineInit(int keySize, SecureRandom secureRandom) {
         engineInit(secureRandom);
     }
 

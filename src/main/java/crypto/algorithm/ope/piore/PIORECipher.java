@@ -1,4 +1,4 @@
-package crypto.algorithm.ope.fope;
+package crypto.algorithm.ope.piore;
 
 import crypto.EngineAutoBindable;
 import crypto.algorithm.ope.GaloisPRF;
@@ -6,26 +6,22 @@ import crypto.algorithm.ope.GaloisPRF;
 import javax.crypto.Cipher;
 import javax.crypto.CipherSpi;
 import javax.crypto.NoSuchPaddingException;
-import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.security.*;
 import java.security.spec.AlgorithmParameterSpec;
 
-public class FOPECipher extends CipherSpi implements EngineAutoBindable {
+public class PIORECipher extends CipherSpi implements EngineAutoBindable {
 
-    public static final String ALGORITHM_NAME = "FastOPE";
+    public static final String ALGORITHM_NAME = "PIOre";
 
     private int opmode;
 
-    private byte d;
     private byte[] k;
+    private BigInteger m;
+    private byte n;
 
-    private BigInteger[] infLimitF;
-    private BigInteger[] supLimitF;
-
-    private int nBytesLength;
+    private int mPowerNBytesLength;
 
     @Override
     public String getBind() {
@@ -65,28 +61,13 @@ public class FOPECipher extends CipherSpi implements EngineAutoBindable {
     @Override
     protected void engineInit(int opmode, Key key, SecureRandom secureRandom) throws InvalidKeyException {
         this.opmode = opmode;
-        if (key instanceof FOPESecretKeySpec) {
-            FOPESecretKeySpec.Raw raw = ((FOPESecretKeySpec) key).decodeKey();
-
-            BigDecimal alpha = BigDecimal.valueOf(raw.getAlpha());
-            BigDecimal beta = BigDecimal.valueOf(raw.getBeta());
-            BigDecimal n = BigDecimal.valueOf((raw.getN()));
-            BigDecimal e = BigDecimal.valueOf(raw.getE());
+        if (key instanceof PIORESecretKeySpec) {
+            PIORESecretKeySpec.Raw raw = ((PIORESecretKeySpec) key).decodeKey();
             k = raw.getK();
-            d = raw.getD();
+            m = BigInteger.TWO.pow(raw.getM());
+            n = raw.getN();
 
-            infLimitF = new BigInteger[d + 1];
-            supLimitF = new BigInteger[d + 1];
-
-            for (int j = 0; j <= d; j++) {
-                BigDecimal factor = e.pow(j).multiply(n);
-                infLimitF[j] = alpha.multiply(factor).setScale(0, RoundingMode.FLOOR).toBigInteger();
-                supLimitF[j] = beta.multiply(factor).setScale(0, RoundingMode.CEILING).toBigInteger();
-            }
-            infLimitF[d] = BigInteger.ONE;
-
-
-            nBytesLength = n.toBigInteger().toByteArray().length;
+            mPowerNBytesLength = m.pow(n).toByteArray().length;
         } else throw new InvalidKeyException("The key used is not a " + ALGORITHM_NAME + " Key");
     }
 
@@ -104,7 +85,7 @@ public class FOPECipher extends CipherSpi implements EngineAutoBindable {
     protected byte[] engineUpdate(byte[] input, int inputOffset, int inputLen) {
         byte[] output = null;
         if (opmode == Cipher.ENCRYPT_MODE) {
-            output = new byte[nBytesLength];
+            output = new byte[mPowerNBytesLength];
         } else if (opmode == Cipher.DECRYPT_MODE) {
             output = new byte[Long.BYTES];
         }
@@ -115,12 +96,12 @@ public class FOPECipher extends CipherSpi implements EngineAutoBindable {
     @Override
     protected int engineUpdate(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) {
         if (opmode == Cipher.ENCRYPT_MODE) {
-            long x = ByteBuffer.wrap(input).getLong();
+            long b = ByteBuffer.wrap(input).getLong();
 
-            BigInteger cipher = f(0, 0);
-            for (int i = 1; i <= d; i++) {
-                int xI = (int) ((x >> (d - i)) & 1);
-                cipher = BigInteger.valueOf(2 * xI - 1).multiply(f(i, x)).add(cipher);
+            BigInteger cipher = BigInteger.ZERO;
+            for (int i = 1; i <= n; i++) {
+                BigInteger uI = f(i, b);
+                cipher = m.pow(n - i).multiply(uI).add(cipher);
             }
 
             byte[] cipherArray = cipher.toByteArray();
@@ -128,23 +109,26 @@ public class FOPECipher extends CipherSpi implements EngineAutoBindable {
         } else if (opmode == Cipher.DECRYPT_MODE) {
             BigInteger c = new BigInteger(input);
 
-            BigInteger a = f(0, 0);
-            long x = c.compareTo(a) < 0 ? 0 : 1L << (d - 1);
+            long b = 0;
 
-            for (int i = 2; i <= d; i++) {
-                int xI = (int) ((x >> (d - i + 1)) & 1);
-                a = BigInteger.valueOf(2 * xI - 1).multiply(f(i - 1, x)).add(a);
-                if (c.compareTo(a) >= 0) {
-                    x |= 1L << (d - i);
+            BigInteger[] u = new BigInteger[n];
+            for (int i = n - 1; i >= 0; i--) {
+                BigInteger[] quotientAndRemainder = c.divideAndRemainder(m);
+                c = quotientAndRemainder[0];
+                u[i] = quotientAndRemainder[1];
+            }
+
+            for (int i = 1; i <= n; i++) {
+                if (u[i - 1].compareTo(f(i, b)) != 0) {
+                    b |= 1L << (n - i);
                 }
             }
 
-            long x0 = x & 1;
-            a = BigInteger.valueOf(2 * x0 - 1).multiply(f(d, x)).add(a);
+            if (!c.equals(BigInteger.ZERO)) {
+                b = Long.MIN_VALUE;
+            }
 
-            if (c.compareTo(a) != 0) x = Long.MIN_VALUE; // Maybe remove if Mondrian does change encrypted values
-
-            System.arraycopy(ByteBuffer.allocate(Long.BYTES).putLong(x).array(), 0, output, 0, output.length);
+            System.arraycopy(ByteBuffer.allocate(Long.BYTES).putLong(b).array(), 0, output, 0, output.length);
         }
 
         return inputLen;
@@ -160,19 +144,12 @@ public class FOPECipher extends CipherSpi implements EngineAutoBindable {
         return engineUpdate(input, inputOffset, inputLen, output, outputOffset);
     }
 
-    private BigInteger f(int i, long x) {
-        try {
-            // Include only i most significant bits
-            int shift = d - i;
-            x = x >> shift << shift;
+    private BigInteger f(int i, long b) {
+        int shift = n - i + 1;
+        int bI = (int) ((b >> (n - i)) & 1);
+        b = b >> shift << shift;
 
-            byte[] hash = GaloisPRF.generate(k, x);
-            BigInteger bi = new BigInteger(hash);
-            return bi.mod(supLimitF[i].subtract(infLimitF[i])).add(infLimitF[i]);
-        } catch (ArithmeticException e) {
-            e.printStackTrace();
-            return BigInteger.ONE.multiply(BigInteger.valueOf(-1));
-        }
+        byte[] hash = GaloisPRF.generate(k, i, b);
+        return new BigInteger(hash).add(BigInteger.valueOf(bI)).mod(m);
     }
-
 }

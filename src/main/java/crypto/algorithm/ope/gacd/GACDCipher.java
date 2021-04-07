@@ -19,6 +19,8 @@ public class GACDCipher extends CipherSpi implements EngineAutoBindable {
     private SecureRandom secureRandom;
 
     private BigInteger k;
+    private BigInteger kPow;
+
 
     @Override
     public String getBind() {
@@ -62,7 +64,8 @@ public class GACDCipher extends CipherSpi implements EngineAutoBindable {
         if (key instanceof GACDSecretKeySpec) {
             GACDSecretKeySpec.Raw raw = ((GACDSecretKeySpec) key).decodeKey();
             k = raw.getK();
-        } else throw new InvalidKeyException("The key used is not a GACD Key");
+            kPow = BigDecimal.valueOf(Math.pow(k.doubleValue(), 3.0 / 4)).toBigInteger();
+        } else throw new InvalidKeyException("The key used is not a " + ALGORITHM_NAME + " Key");
     }
 
     @Override
@@ -92,7 +95,6 @@ public class GACDCipher extends CipherSpi implements EngineAutoBindable {
         if (opmode == Cipher.ENCRYPT_MODE) {
             long m = ByteBuffer.wrap(input).getLong();
 
-            BigInteger kPow = BigDecimal.valueOf(Math.pow(k.doubleValue(), 3.0 / 4)).toBigInteger();
             BigInteger r = new BigInteger(k.bitLength(), secureRandom).mod(k.subtract(BigInteger.TWO.multiply(kPow))).add(kPow);
             BigInteger c = BigInteger.valueOf(m).multiply(k).add(r);
 

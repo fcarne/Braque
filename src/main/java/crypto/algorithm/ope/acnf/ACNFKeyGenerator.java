@@ -13,7 +13,7 @@ public class ACNFKeyGenerator extends KeyGeneratorSpi implements EngineAutoBinda
 
     private SecureRandom secureRandom = new SecureRandom();
 
-    private byte l = ACNFAlgorithmParameterSpec.DEFAULT_L;
+    private ACNFAlgorithmParameterSpec parameterSpec = new ACNFAlgorithmParameterSpec();
 
     @Override
     public String getBind() {
@@ -29,7 +29,7 @@ public class ACNFKeyGenerator extends KeyGeneratorSpi implements EngineAutoBinda
     protected void engineInit(AlgorithmParameterSpec algorithmParameterSpec, SecureRandom secureRandom) throws InvalidAlgorithmParameterException {
         if (!(algorithmParameterSpec instanceof ACNFAlgorithmParameterSpec))
             throw new InvalidAlgorithmParameterException();
-        this.l = ((ACNFAlgorithmParameterSpec) algorithmParameterSpec).getL();
+        parameterSpec = (ACNFAlgorithmParameterSpec) algorithmParameterSpec;
         engineInit(secureRandom);
     }
 
@@ -40,8 +40,8 @@ public class ACNFKeyGenerator extends KeyGeneratorSpi implements EngineAutoBinda
 
     @Override
     protected SecretKey engineGenerateKey() {
-        byte[] seed = secureRandom.generateSeed(31);
-        return new ACNFSecretKeySpec.Raw().setL(l).setSeed(seed).build();
+        byte[] seed = secureRandom.generateSeed(30);
+        return new ACNFSecretKeySpec.Raw().setL(parameterSpec.getL()).setN(parameterSpec.getN()).setSeed(seed).build();
     }
 
 }

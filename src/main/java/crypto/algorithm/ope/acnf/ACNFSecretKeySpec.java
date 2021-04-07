@@ -17,15 +17,17 @@ public class ACNFSecretKeySpec extends SecretKeySpec {
         ByteBuffer buffer = ByteBuffer.wrap(getEncoded());
 
         byte l = buffer.get();
-        byte[] seed = new byte[31];
+        byte n = buffer.get();
+        byte[] seed = new byte[30];
         buffer.get(seed);
 
-        return new Raw().setL(l).setSeed(seed);
+        return new Raw().setL(l).setN(n).setSeed(seed);
     }
 
     public static class Raw {
 
         private byte l;
+        private byte n;
         private byte[] seed = new byte[31];
 
         public byte getL() {
@@ -34,6 +36,15 @@ public class ACNFSecretKeySpec extends SecretKeySpec {
 
         public Raw setL(byte l) {
             this.l = l;
+            return this;
+        }
+
+        public byte getN() {
+            return n;
+        }
+
+        public Raw setN(byte n) {
+            this.n = n;
             return this;
         }
 
@@ -50,6 +61,7 @@ public class ACNFSecretKeySpec extends SecretKeySpec {
             ByteBuffer buffer = ByteBuffer.allocate(Byte.BYTES * 32);
 
             buffer.put(l);
+            buffer.put(n);
             buffer.put(seed);
 
             return buffer.array();

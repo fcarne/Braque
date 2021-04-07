@@ -2,13 +2,16 @@ package crypto.algorithm.ope.tym;
 
 import crypto.EngineAutoBindable;
 import org.apache.commons.math3.distribution.BinomialDistribution;
+import org.renjin.script.RenjinScriptEngineFactory;
+import org.renjin.sexp.IntVector;
 
 import javax.crypto.KeyGeneratorSpi;
 import javax.crypto.SecretKey;
+import javax.script.ScriptEngine;
+import javax.script.ScriptException;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.SecureRandom;
 import java.security.spec.AlgorithmParameterSpec;
-import java.util.Arrays;
 
 public class TYMKeyGenerator extends KeyGeneratorSpi implements EngineAutoBindable {
 
@@ -34,7 +37,7 @@ public class TYMKeyGenerator extends KeyGeneratorSpi implements EngineAutoBindab
     }
 
     @Override
-    protected void engineInit(int i, SecureRandom secureRandom) {
+    protected void engineInit(int keySize, SecureRandom secureRandom) {
         engineInit(secureRandom);
     }
 
@@ -52,6 +55,25 @@ public class TYMKeyGenerator extends KeyGeneratorSpi implements EngineAutoBindab
         int theta = parameterSpec.getTheta();
         int m = parameterSpec.getM();
         double p = 1 - Math.pow((1 - 1 / Math.sqrt(parameterSpec.getK())), 1.0 / theta);
+
+        /*ScriptEngine engine = new RenjinScriptEngineFactory().getScriptEngine()
+        engine.put("N", m - a);
+        engine.put("p", p);
+        engine.put("multiplier", Math.pow(2, parameterSpec.getLambda()) * Math.pow(theta, 2));
+
+        long c0 = 0;
+        long c1 = 0;
+
+        try {
+            IntVector vector = (IntVector) engine.eval("c1 <- rbinom(1, N, 1 - p); " +
+                    "c0 <- rbinom(1, multiplier * (N - c1), 1/2);" +
+                    "c(c0, c1) ");
+
+            c0 = vector.getElementAsInt(0);
+            c1 = vector.getElementAsInt(1);
+        } catch (ScriptException e) {
+            e.printStackTrace();
+        }*/
 
         long c1 = new BinomialDistribution(m - a, 1 - p).sample();
         long c0 = new BinomialDistribution((int) (Math.pow(2,

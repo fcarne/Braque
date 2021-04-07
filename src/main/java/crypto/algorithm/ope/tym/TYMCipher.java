@@ -1,6 +1,7 @@
 package crypto.algorithm.ope.tym;
 
 import crypto.EngineAutoBindable;
+import crypto.algorithm.ope.GaloisPRF;
 import org.renjin.script.RenjinScriptEngineFactory;
 import org.renjin.sexp.DoubleArrayVector;
 
@@ -77,7 +78,7 @@ public class TYMCipher extends CipherSpi implements EngineAutoBindable {
 
             Double multiplier = (Math.pow(2, parameterSpec.getLambda()) * Math.pow(parameterSpec.getTheta(), 2));
             engine.put("multiplier", multiplier);
-        } else throw new InvalidKeyException("The key used is not a TYM Key");
+        } else throw new InvalidKeyException("The key used is not a " + ALGORITHM_NAME + " Key");
     }
 
     @Override
@@ -136,7 +137,7 @@ public class TYMCipher extends CipherSpi implements EngineAutoBindable {
         if (plain == v) return cph(iV);
 
         int w = (int) Math.ceil((u + v) / 2.0);
-        byte[] cc = prf(u, v);
+        byte[] cc = GaloisPRF.generate(k, u, v);
         TYMInterval iW = g(u, v, w, iU, iV, cc);
 
         return plain <= w ? enc(plain, u, w, iU, iW) : enc(plain, w, v, iW, iV);
@@ -148,24 +149,12 @@ public class TYMCipher extends CipherSpi implements EngineAutoBindable {
         if (u == v) return Long.MIN_VALUE;
 
         int w = (int) Math.ceil((u + v) / 2.0);
-        byte[] cc = prf(u, v);
+        byte[] cc = GaloisPRF.generate(k, u, v);
         TYMInterval iW = g(u, v, w, iU, iV, cc);
 
         return (cipher <= cph(iW)) ? dec(cipher, u, w, iU, iW) : dec(cipher, w, v, iW, iV);
     }
 
-    private byte[] prf(int u, int v) {
-        MessageDigest md;
-        try {
-            md = MessageDigest.getInstance("SHA-256");
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException(e);
-        }
-        md.update(k);
-        md.update(ByteBuffer.allocate(2 * Long.BYTES).putLong(u).putLong(v).array());
-
-        return md.digest();
-    }
 
     private long cph(TYMInterval i) {
         return i.c0 + i.c1;

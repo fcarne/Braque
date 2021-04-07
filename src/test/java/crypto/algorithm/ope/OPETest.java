@@ -4,6 +4,7 @@ import crypto.GaloisProvider;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.api.TestInstance;
 
 import javax.crypto.*;
 import java.math.BigInteger;
@@ -14,6 +15,7 @@ import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class OPETest {
 
     protected String algorithmName;
@@ -23,7 +25,8 @@ public abstract class OPETest {
     public abstract void setAlgorithmName();
 
     @BeforeAll
-    static void addProvider() {
+    public void addProvider() {
+        System.out.println(this.getClass().getCanonicalName());
         GaloisProvider.add();
     }
 
