@@ -1,22 +1,19 @@
 import crypto.GaloisProvider;
-import crypto.algorithm.ope.fope.FOPECipher;
-import crypto.algorithm.ope.gacd.GACDCipher;
-import crypto.algorithm.ope.tym.TYMCipher;
-import crypto.algorithm.ope.piore.PIORECipher;
+import crypto.algorithm.ppe.cryptopan.CryptoPanCipher;
 
 import javax.crypto.*;
-import java.nio.ByteBuffer;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
 import java.util.Base64;
 
 public class Galois {
     public static void main(String[] args) {
         GaloisProvider.add();
 
-        String algo = FOPECipher.ALGORITHM_NAME;
+        String algo = CryptoPanCipher.ALGORITHM_NAME;
         try {
-            long x = 240;
+            String x = "ABCD";
             KeyGenerator keyGenerator = KeyGenerator.getInstance(algo);
             SecretKey key = keyGenerator.generateKey();
 
@@ -26,13 +23,25 @@ public class Galois {
             Cipher c = Cipher.getInstance(algo);
 
             c.init(Cipher.ENCRYPT_MODE, key);
-            byte[] encrypted = c.doFinal(ByteBuffer.allocate(Long.BYTES).putLong(x).array());
+            byte[] encrypted = c.doFinal(x.getBytes());
 
             c.init(Cipher.DECRYPT_MODE, key);
             byte[] decrypted = c.doFinal(encrypted);
 
             System.out.println("Value: " + x);
-            System.out.println("Decrypted: " + ByteBuffer.wrap(decrypted).getLong());
+            System.out.println("Encrypted: " + Arrays.toString(encrypted));
+            System.out.println("Decrypted: " + new String(decrypted));
+
+            x = "ABC";
+            c.init(Cipher.ENCRYPT_MODE, key);
+            encrypted = c.doFinal(x.getBytes());
+
+            c.init(Cipher.DECRYPT_MODE, key);
+            decrypted = c.doFinal(encrypted);
+
+            System.out.println("Value: " + x);
+            System.out.println("Encrypted: " + Arrays.toString(encrypted));
+            System.out.println("Decrypted: " + new String(decrypted));
 
         } catch (NoSuchPaddingException | NoSuchAlgorithmException | InvalidKeyException | BadPaddingException | IllegalBlockSizeException e) {
             e.printStackTrace();
