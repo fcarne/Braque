@@ -1,5 +1,6 @@
 package util;
 
+import java.nio.ByteBuffer;
 import java.util.BitSet;
 
 public class BitSetUtils {
@@ -31,6 +32,28 @@ public class BitSetUtils {
 
     public static BitSet valueOf(long l) {
         return BitSet.valueOf(new long[]{l});
+    }
+
+    public static BitSet fromBigEndian(byte[] bytes) {
+        return BitSet.valueOf(reverseBytes(bytes));
+    }
+
+    public static BitSet fromBigEndian(ByteBuffer buffer) {
+        return fromBigEndian(buffer.array());
+    }
+
+    public static byte[] toBigEndian(BitSet bitSet) {
+        return reverseBytes(bitSet.toByteArray());
+    }
+
+    private static byte[] reverseBytes(byte[] input) {
+        byte[] reversed = input.clone();
+        for (int i = 0; i < reversed.length / 2; i++) {
+            byte temp = reversed[i];
+            reversed[i] = reversed[reversed.length - 1 - i];
+            reversed[reversed.length - 1 - i] = temp;
+        }
+        return reversed;
     }
 
 }

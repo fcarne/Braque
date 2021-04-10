@@ -2,9 +2,12 @@ import org.apache.commons.math3.distribution.HypergeometricDistribution;
 import org.renjin.script.RenjinScriptEngineFactory;
 import org.renjin.sexp.DoubleArrayVector;
 
+import javax.crypto.*;
 import javax.script.ScriptEngine;
 import javax.script.ScriptException;
 import java.math.BigInteger;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.security.Provider;
 import java.security.Security;
 import java.util.ArrayList;
@@ -13,7 +16,16 @@ import java.util.Random;
 
 public class RandomTests {
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws NoSuchAlgorithmException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException, InvalidKeyException {
+        byte[] b = new byte[1];
+        SecretKey key = KeyGenerator.getInstance("AES").generateKey();
+        Cipher c = Cipher.getInstance("AES");
+        c.init(Cipher.ENCRYPT_MODE, key);
+        while (b.length < 1000) {
+            b = c.doFinal(b);
+            System.out.println(b.length);
+        }
+        System.out.println(Arrays.toString(b));
     }
 
     public static void providerAlgorithms() {

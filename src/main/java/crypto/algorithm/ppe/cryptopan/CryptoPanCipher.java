@@ -6,7 +6,6 @@ import util.BitSetUtils;
 import javax.crypto.*;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.security.*;
 import java.security.spec.AlgorithmParameterSpec;
 import java.util.Arrays;
@@ -17,6 +16,7 @@ public class CryptoPanCipher extends CipherSpi implements EngineAutoBindable {
     public static final String ALGORITHM_NAME = "CryptoPan";
 
     private int opmode;
+    private CryptoPanAlgorithmParameterSpec parameterSpec = new CryptoPanAlgorithmParameterSpec();
     private boolean suffixMode = false;
 
     private Cipher cipher;
@@ -71,7 +71,14 @@ public class CryptoPanCipher extends CipherSpi implements EngineAutoBindable {
             try {
                 cipher = Cipher.getInstance("AES");
                 cipher.init(Cipher.ENCRYPT_MODE, cipherKey);
-                pad = cipher.doFinal(raw.getPad());
+
+                parameterSpec.setMaxLength(4);
+                //SecureRandom random = SecureRandom.getInstance("SHA1PRNG");
+                //byte[] padBytes = new byte[parameterSpec.getMaxLength()];
+                //random.nextBytes(padBytes);
+                pad = Arrays.copyOfRange(cipher.doFinal(raw.getPad()), 0, parameterSpec.getMaxLength());
+
+
             } catch (NoSuchAlgorithmException | NoSuchPaddingException | BadPaddingException | IllegalBlockSizeException e) {
                 e.printStackTrace();
             }
@@ -80,7 +87,10 @@ public class CryptoPanCipher extends CipherSpi implements EngineAutoBindable {
     }
 
     @Override
-    protected void engineInit(int opmode, Key key, AlgorithmParameterSpec algorithmParameterSpec, SecureRandom secureRandom) throws InvalidKeyException {
+    protected void engineInit(int opmode, Key key, AlgorithmParameterSpec algorithmParameterSpec, SecureRandom secureRandom) throws InvalidKeyException, InvalidAlgorithmParameterException {
+        if (algorithmParameterSpec instanceof CryptoPanAlgorithmParameterSpec) {
+            parameterSpec = (CryptoPanAlgorithmParameterSpec) algorithmParameterSpec;
+        } else throw new InvalidAlgorithmParameterException();
         engineInit(opmode, key, secureRandom);
     }
 
@@ -103,82 +113,95 @@ public class CryptoPanCipher extends CipherSpi implements EngineAutoBindable {
 
     @Override
     protected int engineUpdate(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) {
+
+        if (suffixMode) {
+            reverse(input);
+        }
+
+        ByteBuffer buffer = ByteBuffer.allocate(parameterSpec.getMaxLength()).put(input);
+        BitSet original = BitSetUtils.fromBigEndian(buffer);
+
+        BitSet padBits = BitSet.valueOf(pad);
+
         if (opmode == Cipher.ENCRYPT_MODE) {
+            BitSet result = new BitSet(parameterSpec.getMaxLength());
 
-            ByteBuffer buffer = ByteBuffer.allocate(4 * Byte.BYTES).put(input);
+            for (int pos = 0; pos < inputLen * 8; pos++) {
 
-            BitSet original = BitSet.valueOf(reverseBytes(buffer.array()));
-            BitSet result = new BitSet(32);
-            BitSet first4bytes_pad = BitSet.valueOf(Arrays.copyOfRange(pad, 0, 4));
-
-            for (int pos = 0; pos < 32; pos++) {
-
-                BitSet otp = calculateOTP(original, first4bytes_pad, pos);
-
+                BitSet otp = calculateOTP(original, padBits, pos);
                 byte[] cipherInput = otp.toByteArray();
+
                 byte[] cipherOutput = new byte[0];
                 try {
-                    cipherOutput = Arrays.copyOfRange(cipher.doFinal(cipherInput), 0, 4);
+                    cipherOutput = Arrays.copyOfRange(cipher.doFinal(cipherInput), 0, parameterSpec.getMaxLength());
                 } catch (IllegalBlockSizeException | BadPaddingException e) {
                     e.printStackTrace();
                 }
 
-                BitSet bitSetOutput = BitSet.valueOf(cipherOutput);
-                bitSetOutput.and(BitSetUtils.valueOf(0x80000000));
-                result.or(BitSetUtils.shiftRight(bitSetOutput, pos));
+//                BitSet msb2 = BitSetUtils.shiftLeft(BitSetUtils.shiftRight(BitSet.valueOf(cipherOutput), parameterSpec.getBitsMaxLength() - 1), );
+
+                BitSet msb = BitSet.valueOf(cipherOutput);
+                msb.and(BitSetUtils.valueOf(0x80000000));
+          //      System.out.println(msb + " --- " + msb2);
+                result.or(BitSetUtils.shiftRight(msb, pos));
 
             }
-
             result.xor(original);
 
-            byte[] resultArray = reverseBytes(result.toByteArray());
+            byte[] resultArray = BitSetUtils.toBigEndian(result);
+
+            if (suffixMode) reverse(resultArray);
+
             System.arraycopy(resultArray, 0, output, 0, output.length);
 
         } else if (opmode == Cipher.DECRYPT_MODE) {
 
-            ByteBuffer buffer = ByteBuffer.allocate(4 * Byte.BYTES).put(input);
+            for (int pos = 0; pos < inputLen * 8; pos++) {
 
-            BitSet original = BitSet.valueOf(reverseBytes(buffer.array()));
-            BitSet first4bytes_pad = BitSet.valueOf(Arrays.copyOfRange(pad, 0, 4));
+                BitSet otp = calculateOTP(original, padBits, pos);
+                byte[] cipherInput = otp.toByteArray();
 
-            for (int pos = 0; pos < 32; pos++) {
-
-                BitSet newpad = calculateOTP(original, first4bytes_pad, pos);
-
-                byte[] cipherInput = newpad.toByteArray();
                 byte[] cipherOutput = new byte[0];
                 try {
-                    cipherOutput = Arrays.copyOfRange(cipher.doFinal(cipherInput), 0, 4);
+                    cipherOutput = Arrays.copyOfRange(cipher.doFinal(cipherInput), 0, parameterSpec.getMaxLength());
                 } catch (IllegalBlockSizeException | BadPaddingException e) {
                     e.printStackTrace();
                 }
 
-                BitSet bitSetOutput = BitSet.valueOf(cipherOutput);
-                bitSetOutput.and(BitSetUtils.valueOf(0x80000000));
-                original.xor(BitSetUtils.shiftRight(bitSetOutput, pos));
+                BitSet msb = BitSet.valueOf(cipherOutput).get(parameterSpec.getBitsMaxLength() - 1, parameterSpec.getBitsMaxLength());
+                //BitSet bitSetOutput = BitSet.valueOf(cipherOutput);
+                //bitSetOutput.and(BitSetUtils.valueOf(0x80000000));
+                original.xor(BitSetUtils.shiftRight(msb, pos));
             }
 
-            byte[] resultArray = reverseBytes(original.toByteArray());
-            System.arraycopy(resultArray, 0, output, 0, output.length);
+            byte[] originalArray = BitSetUtils.toBigEndian(original);
+
+            if (suffixMode) reverse(originalArray);
+
+            System.arraycopy(originalArray, 0, output, 0, output.length);
         }
 
         return inputLen;
     }
 
-    private BitSet calculateOTP(BitSet original, BitSet first4bytes_pad, int pos) {
-        BitSet mask = BitSetUtils.valueOf(-1L << (32 - pos));
-        BitSet newpad = BitSetUtils.shiftLeft(first4bytes_pad, pos);
-        newpad.or(BitSetUtils.shiftRight(first4bytes_pad, 32 - pos));
+    private BitSet calculateOTP(BitSet original, BitSet padBits, int pos) {
 
-        if (pos == 0) {
-            // the compile thinks ( -1<<(32-0) = 0xffffffff instead of 0 )
+        int length = parameterSpec.getBitsMaxLength();
+
+        BitSet mask = new BitSet(length);
+        mask.set(length - pos, length);
+
+        BitSet otp = BitSetUtils.shiftLeft(padBits, pos);
+        otp.or(BitSetUtils.shiftRight(padBits, length - pos));
+
+        /*if (pos == 0) {
             mask.clear();
-            newpad = first4bytes_pad;
-        }
+            otp = padBits;
+        }*/
 
         mask.and(original);
-        newpad.xor(mask);
-        return newpad;
+        otp.xor(mask);
+        return otp;
     }
 
     @Override
@@ -191,24 +214,12 @@ public class CryptoPanCipher extends CipherSpi implements EngineAutoBindable {
         return engineUpdate(input, inputOffset, inputLen, output, outputOffset);
     }
 
-    private byte[] reverse(byte[] input) {
-        byte[] reverse = new byte[input.length];
+    private void reverse(byte[] input) {
         for (int j = 0; j < input.length; j++) {
             for (int i = 0; i < 8; i++) {
-                reverse[reverse.length - j - 1] <<= 1;
-                reverse[reverse.length - j - 1] |= (input[j] >> i) & 0x1;
+                input[input.length - j - 1] <<= 1;
+                input[input.length - j - 1] |= (input[j] >> i) & 0x1;
             }
         }
-        return reverse;
-    }
-
-    private byte[] reverseBytes(byte[] input) {
-        byte[] reversed = input.clone();
-        for (int i = 0; i < reversed.length / 2; i++) {
-            byte temp = reversed[i];
-            reversed[i] = reversed[reversed.length - 1 - i];
-            reversed[reversed.length - 1 - i] = temp;
-        }
-        return reversed;
     }
 }
