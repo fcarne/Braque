@@ -4,6 +4,7 @@ import org.reflections.Reflections;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.security.Provider;
 import java.security.Security;
 
@@ -20,9 +21,10 @@ public class GaloisProvider extends Provider {
         new Reflections(packageName).getSubTypesOf(EngineAutoBindable.class).forEach(autoBindable -> {
             try {
                 Method getBind = EngineAutoBindable.getBindMethod();
-                Object obj = autoBindable.getDeclaredConstructor().newInstance();
-                assert getBind != null;
-                put(getBind.invoke(obj), autoBindable.getCanonicalName());
+                if (!(Modifier.isAbstract(autoBindable.getModifiers()) || autoBindable.isInterface())) {
+                    Object obj = autoBindable.getDeclaredConstructor().newInstance();
+                    put(getBind.invoke(obj), autoBindable.getName());
+                }
             } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException | InstantiationException e) {
                 e.printStackTrace();
             }

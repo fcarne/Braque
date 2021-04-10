@@ -11,20 +11,44 @@ import java.security.spec.AlgorithmParameterSpec;
 import java.util.Arrays;
 import java.util.BitSet;
 
-public class CryptoPanCipher extends CipherSpi implements EngineAutoBindable {
+public abstract class CryptoPanCipher extends CipherSpi implements EngineAutoBindable {
 
-    public static final String ALGORITHM_NAME = "CryptoPan";
+    protected static final String ALGORITHM_NAME = "CryptoPan";
 
     private int opmode;
     private CryptoPanAlgorithmParameterSpec parameterSpec = new CryptoPanAlgorithmParameterSpec();
-    private boolean suffixMode = false;
+    private boolean suffixMode;
 
     private Cipher cipher;
-    private byte[] pad;
+    private BitSet padBits;
+    private BitSet[] shiftedPad;
 
-    @Override
-    public String getBind() {
-        return "Cipher." + ALGORITHM_NAME;
+    public static class Prefix extends CryptoPanCipher {
+
+        public static final String ALGORITHM_NAME = CryptoPanCipher.ALGORITHM_NAME;
+
+        public Prefix() throws NoSuchAlgorithmException {
+            engineSetMode("Prefix");
+        }
+
+        @Override
+        public String getBind() {
+            return "Cipher." + ALGORITHM_NAME;
+        }
+    }
+
+    public static class Suffix extends CryptoPanCipher {
+
+        public static final String ALGORITHM_NAME = CryptoPanCipher.ALGORITHM_NAME + ".Suffix";
+
+        public Suffix() throws NoSuchAlgorithmException {
+            engineSetMode("Suffix");
+        }
+
+        @Override
+        public String getBind() {
+            return "Cipher." + ALGORITHM_NAME;
+        }
     }
 
     @Override
@@ -72,12 +96,16 @@ public class CryptoPanCipher extends CipherSpi implements EngineAutoBindable {
                 cipher = Cipher.getInstance("AES");
                 cipher.init(Cipher.ENCRYPT_MODE, cipherKey);
 
-                parameterSpec.setMaxLength(4);
-                //SecureRandom random = SecureRandom.getInstance("SHA1PRNG");
-                //byte[] padBytes = new byte[parameterSpec.getMaxLength()];
-                //random.nextBytes(padBytes);
-                pad = Arrays.copyOfRange(cipher.doFinal(raw.getPad()), 0, parameterSpec.getMaxLength());
+                SecureRandom random = SecureRandom.getInstance("SHA1PRNG");
+                random.setSeed(raw.getPad());
 
+                byte[] padBytes = new byte[parameterSpec.getMaxLength()];
+                random.nextBytes(padBytes);
+
+                byte[] pad = Arrays.copyOfRange(cipher.doFinal(padBytes), 0, parameterSpec.getMaxLength());
+                padBits = BitSet.valueOf(pad);
+
+                shiftedPad = new BitSet[parameterSpec.getBitsMaxLength()];
 
             } catch (NoSuchAlgorithmException | NoSuchPaddingException | BadPaddingException | IllegalBlockSizeException e) {
                 e.printStackTrace();
@@ -115,16 +143,16 @@ public class CryptoPanCipher extends CipherSpi implements EngineAutoBindable {
     protected int engineUpdate(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) {
 
         if (suffixMode) {
-            reverse(input);
+            input = reverse(input);
         }
 
         ByteBuffer buffer = ByteBuffer.allocate(parameterSpec.getMaxLength()).put(input);
-        BitSet original = BitSetUtils.fromBigEndian(buffer);
 
-        BitSet padBits = BitSet.valueOf(pad);
+        BitSet original = BitSetUtils.fromBigEndian(buffer);
+        int bitsLength = parameterSpec.getBitsMaxLength();
 
         if (opmode == Cipher.ENCRYPT_MODE) {
-            BitSet result = new BitSet(parameterSpec.getMaxLength());
+            BitSet result = new BitSet(parameterSpec.getMaxLength() * 8);
 
             for (int pos = 0; pos < inputLen * 8; pos++) {
 
@@ -138,19 +166,18 @@ public class CryptoPanCipher extends CipherSpi implements EngineAutoBindable {
                     e.printStackTrace();
                 }
 
-//                BitSet msb2 = BitSetUtils.shiftLeft(BitSetUtils.shiftRight(BitSet.valueOf(cipherOutput), parameterSpec.getBitsMaxLength() - 1), );
-
-                BitSet msb = BitSet.valueOf(cipherOutput);
-                msb.and(BitSetUtils.valueOf(0x80000000));
-          //      System.out.println(msb + " --- " + msb2);
-                result.or(BitSetUtils.shiftRight(msb, pos));
+                BitSet msb = new BitSet(bitsLength - pos);
+                msb.set(bitsLength - 1 - pos, BitSet.valueOf(cipherOutput).get(bitsLength - 1));
+                result.or(msb);
 
             }
             result.xor(original);
 
-            byte[] resultArray = BitSetUtils.toBigEndian(result);
+            byte[] resultArray = Arrays.copyOfRange(BitSetUtils.toBigEndian(result), 0, inputLen);
 
-            if (suffixMode) reverse(resultArray);
+            if (suffixMode) {
+                resultArray = reverse(resultArray);
+            }
 
             System.arraycopy(resultArray, 0, output, 0, output.length);
 
@@ -168,40 +195,22 @@ public class CryptoPanCipher extends CipherSpi implements EngineAutoBindable {
                     e.printStackTrace();
                 }
 
-                BitSet msb = BitSet.valueOf(cipherOutput).get(parameterSpec.getBitsMaxLength() - 1, parameterSpec.getBitsMaxLength());
-                //BitSet bitSetOutput = BitSet.valueOf(cipherOutput);
-                //bitSetOutput.and(BitSetUtils.valueOf(0x80000000));
-                original.xor(BitSetUtils.shiftRight(msb, pos));
+                BitSet msb = new BitSet(bitsLength - pos);
+                msb.set(bitsLength - 1 - pos, BitSet.valueOf(cipherOutput).get(bitsLength - 1));
+
+                original.xor(msb);
             }
 
-            byte[] originalArray = BitSetUtils.toBigEndian(original);
+            byte[] originalArray = Arrays.copyOfRange(BitSetUtils.toBigEndian(original), 0, inputLen);
 
-            if (suffixMode) reverse(originalArray);
+            if (suffixMode) {
+                originalArray = reverse(originalArray);
+            }
 
             System.arraycopy(originalArray, 0, output, 0, output.length);
         }
 
         return inputLen;
-    }
-
-    private BitSet calculateOTP(BitSet original, BitSet padBits, int pos) {
-
-        int length = parameterSpec.getBitsMaxLength();
-
-        BitSet mask = new BitSet(length);
-        mask.set(length - pos, length);
-
-        BitSet otp = BitSetUtils.shiftLeft(padBits, pos);
-        otp.or(BitSetUtils.shiftRight(padBits, length - pos));
-
-        /*if (pos == 0) {
-            mask.clear();
-            otp = padBits;
-        }*/
-
-        mask.and(original);
-        otp.xor(mask);
-        return otp;
     }
 
     @Override
@@ -214,12 +223,43 @@ public class CryptoPanCipher extends CipherSpi implements EngineAutoBindable {
         return engineUpdate(input, inputOffset, inputLen, output, outputOffset);
     }
 
-    private void reverse(byte[] input) {
+    public static byte[] reverse(byte[] input) {
+        byte[] reversed = new byte[input.length];
         for (int j = 0; j < input.length; j++) {
             for (int i = 0; i < 8; i++) {
-                input[input.length - j - 1] <<= 1;
-                input[input.length - j - 1] |= (input[j] >> i) & 0x1;
+                reversed[input.length - j - 1] <<= 1;
+                reversed[input.length - j - 1] |= (input[j] >> i) & 0x1;
             }
         }
+        return reversed;
     }
+
+    private BitSet calculateOTP(BitSet original, BitSet padBits, int pos) {
+
+        int length = parameterSpec.getBitsMaxLength();
+
+        BitSet mask = new BitSet(length);
+        mask.set(length - pos, length);
+
+        BitSet otp;
+
+        if (shiftedPad[pos] != null) {
+            otp = (BitSet) shiftedPad[pos].clone();
+        } else {
+            otp = BitSetUtils.shiftLeft(padBits, pos);
+            otp.or(BitSetUtils.shiftRight(padBits, length - pos));
+
+            shiftedPad[pos] = (BitSet) otp.clone();
+        }
+
+        /*if (pos == 0) {
+            mask.clear();
+            otp = padBits;
+        }*/
+        mask.and(original);
+        otp.xor(mask);
+
+        return otp;
+    }
+
 }

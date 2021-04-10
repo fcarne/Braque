@@ -46,7 +46,7 @@ public class BitSetUtils {
         return reverseBytes(bitSet.toByteArray());
     }
 
-    private static byte[] reverseBytes(byte[] input) {
+    public static byte[] reverseBytes(byte[] input) {
         byte[] reversed = input.clone();
         for (int i = 0; i < reversed.length / 2; i++) {
             byte temp = reversed[i];
