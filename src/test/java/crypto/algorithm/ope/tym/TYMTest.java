@@ -3,6 +3,8 @@ package crypto.algorithm.ope.tym;
 import crypto.algorithm.ope.OPETest;
 
 import javax.crypto.SecretKey;
+import java.security.InvalidKeyException;
+import java.util.Base64;
 
 public class TYMTest extends OPETest {
 
@@ -12,8 +14,12 @@ public class TYMTest extends OPETest {
     }
 
     @Override
-    protected SecretKey buildCustomKey() {
-        return new TYMSecretKeySpec.Raw().setK(new byte[]{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
-                .setA(-4097).setM(256).setIntervalM(new TYMInterval(360285, 4342)).build();
+    protected SecretKey buildCustomKey() throws InvalidKeyException {
+        return new TYMSecretKey(-4097, 256, new TYMInterval(360285, 4342), new byte[16]);
+    }
+
+    @Override
+    protected SecretKey buildBase64Key() throws InvalidKeyException {
+        return new TYMSecretKey(Base64.getDecoder().decode("///v/wAAAQAADfuCAAAQ5YKaavTzE4tlEkI494fw/HE="));
     }
 }

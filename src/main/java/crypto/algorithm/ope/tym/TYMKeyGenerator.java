@@ -2,21 +2,17 @@ package crypto.algorithm.ope.tym;
 
 import crypto.EngineAutoBindable;
 import org.apache.commons.math3.distribution.BinomialDistribution;
-import org.renjin.script.RenjinScriptEngineFactory;
-import org.renjin.sexp.IntVector;
 
 import javax.crypto.KeyGeneratorSpi;
 import javax.crypto.SecretKey;
-import javax.script.ScriptEngine;
-import javax.script.ScriptException;
-import java.security.InvalidAlgorithmParameterException;
-import java.security.SecureRandom;
+import java.security.*;
 import java.security.spec.AlgorithmParameterSpec;
 
 public class TYMKeyGenerator extends KeyGeneratorSpi implements EngineAutoBindable {
 
     private SecureRandom secureRandom = new SecureRandom();
-    private TYMAlgorithmParameterSpec parameterSpec = new TYMAlgorithmParameterSpec();
+    private int keySize = TYMSecretKey.MINIMUM_KEY_SIZE;
+    private TYMParameterSpec parameterSpec = new TYMParameterSpec();
 
     @Override
     public String getBind() {
@@ -30,25 +26,36 @@ public class TYMKeyGenerator extends KeyGeneratorSpi implements EngineAutoBindab
 
     @Override
     protected void engineInit(AlgorithmParameterSpec algorithmParameterSpec, SecureRandom secureRandom) throws InvalidAlgorithmParameterException {
-        if (!(algorithmParameterSpec instanceof TYMAlgorithmParameterSpec))
-            throw new InvalidAlgorithmParameterException();
-        parameterSpec = (TYMAlgorithmParameterSpec) algorithmParameterSpec;
+        if (!(algorithmParameterSpec instanceof TYMParameterSpec))
+            throw new InvalidAlgorithmParameterException("algorithmParameterSpec must be of type " + TYMParameterSpec.class.getName());
+
+        parameterSpec = (TYMParameterSpec) algorithmParameterSpec;
         engineInit(secureRandom);
     }
 
     @Override
     protected void engineInit(int keySize, SecureRandom secureRandom) {
+        if (keySize % 8 != 0 || TYMSecretKey.isKeySizeNotValid(keySize / 8))
+            throw new InvalidParameterException(TYMSecretKey.getKeySizeError(keySize / 8));
+
+        this.keySize = keySize / 8;
         engineInit(secureRandom);
     }
 
     @Override
     protected SecretKey engineGenerateKey() {
-        byte[] k = new byte[16];
+        byte[] k = new byte[keySize - TYMSecretKey.FIXED_LENGTH];
         secureRandom.nextBytes(k);
+
         int a = -parameterSpec.getK() * parameterSpec.getTheta() - 1;
         TYMInterval intervalM = init(a);
 
-        return new TYMSecretKeySpec.Raw().setK(k).setA(a).setM(parameterSpec.getM()).setIntervalM(intervalM).build();
+        try {
+            return new TYMSecretKey(a, parameterSpec.getM(), intervalM, k);
+        } catch (InvalidKeyException ex) {
+            // never thrown
+            throw new ProviderException(ex);
+        }
     }
 
     private TYMInterval init(int a) {

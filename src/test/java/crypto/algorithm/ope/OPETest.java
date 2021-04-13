@@ -1,47 +1,23 @@
 package crypto.algorithm.ope;
 
-import crypto.GaloisProvider;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
+import crypto.algorithm.GaloisTest;
 import org.junit.jupiter.api.RepeatedTest;
-import org.junit.jupiter.api.TestInstance;
 
-import javax.crypto.*;
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
-import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public abstract class OPETest {
+public abstract class OPETest extends GaloisTest {
 
-    protected String algorithmName;
-    protected SecretKey key;
-    protected Cipher c;
-
-    public abstract void setAlgorithmName();
-
-    @BeforeAll
-    public void addProvider() {
-        System.out.println(this.getClass().getCanonicalName());
-        GaloisProvider.add();
-    }
-
-    @BeforeEach
-    public void setup() throws NoSuchAlgorithmException, NoSuchPaddingException {
-        setAlgorithmName();
-        KeyGenerator keyGen = KeyGenerator.getInstance(algorithmName);
-        key = keyGen.generateKey();
-        c = Cipher.getInstance(algorithmName);
-    }
-
+    @Override
     @RepeatedTest(value = 50, name = RepeatedTest.LONG_DISPLAY_NAME)
     public void decryptedEqualsOriginal() throws InvalidKeyException, BadPaddingException, IllegalBlockSizeException {
-        long x = new Random().nextInt(255);
-
+        long x = random.nextInt(255);
         c.init(Cipher.ENCRYPT_MODE, key);
         byte[] encrypted = c.doFinal(ByteBuffer.allocate(Long.BYTES).putLong(x).array());
 
@@ -53,8 +29,8 @@ public abstract class OPETest {
 
     @RepeatedTest(value = 50, name = RepeatedTest.LONG_DISPLAY_NAME)
     public void encryptedOrderRespectsOriginal() throws InvalidKeyException, BadPaddingException, IllegalBlockSizeException {
-        long x1 = new Random().nextInt(255);
-        long x2 = new Random().nextInt(255);
+        long x1 = random.nextInt(255);
+        long x2 = random.nextInt(255);
 
         c.init(Cipher.ENCRYPT_MODE, key);
         byte[] encrypted1 = c.doFinal(ByteBuffer.allocate(Long.BYTES).putLong(x1).array());
@@ -79,21 +55,4 @@ public abstract class OPETest {
                     }
                 });
     }
-
-    @RepeatedTest(value = 50, name = RepeatedTest.LONG_DISPLAY_NAME)
-    public void customKey() throws BadPaddingException, IllegalBlockSizeException, InvalidKeyException {
-        key = buildCustomKey();
-
-        long x = new Random().nextInt(255);
-
-        c.init(Cipher.ENCRYPT_MODE, key);
-        byte[] encrypted = c.doFinal(ByteBuffer.allocate(Long.BYTES).putLong(x).array());
-
-        c.init(Cipher.DECRYPT_MODE, key);
-        byte[] decrypted = c.doFinal(encrypted);
-
-        assertEquals(x, ByteBuffer.wrap(decrypted).getLong());
-    }
-
-    protected abstract SecretKey buildCustomKey();
 }

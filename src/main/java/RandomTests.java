@@ -1,38 +1,46 @@
+import crypto.GaloisJCE;
 import org.apache.commons.math3.distribution.HypergeometricDistribution;
 import org.renjin.script.RenjinScriptEngineFactory;
 import org.renjin.sexp.DoubleArrayVector;
 
-import javax.crypto.*;
 import javax.script.ScriptEngine;
 import javax.script.ScriptException;
-import java.math.BigInteger;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
 import java.security.Provider;
 import java.security.Security;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Random;
 
 public class RandomTests {
 
-    public static void main(String[] args) throws NoSuchAlgorithmException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException, InvalidKeyException {
-        byte[] b = new byte[1];
-        SecretKey key = KeyGenerator.getInstance("AES").generateKey();
-        Cipher c = Cipher.getInstance("AES");
-        c.init(Cipher.ENCRYPT_MODE, key);
-        while (b.length < 1000) {
-            b = c.doFinal(b);
-            System.out.println(b.length);
-        }
-        System.out.println(Arrays.toString(b));
+    public static void main(String[] args) {
+        BitSet bitSet = new BitSet(32);
+        bitSet.set(20);
+        bitSet.set(30);
+        bitSet.set(40);
+        bitSet.set(50);
+        bitSet.set(60);
+        bitSet.set(70);
+
+        System.out.println(bitSet);
+        int i = bitSet.length() - 1;
+        do {
+            bitSet.clear(i);
+            bitSet.set(i + 4);
+            i = bitSet.previousSetBit(i);
+        } while (i >= 0);
+        System.out.println(bitSet);
+
     }
 
     public static void providerAlgorithms() {
+        GaloisJCE.add();
         for (Provider provider : Security.getProviders()) {
-            System.out.println("Provider: " + provider.getName());
+            System.out.printf("Provider: %s v%s%n", provider.getName(), provider.getVersionStr());
+            System.out.println(provider.getInfo());
             for (Provider.Service service : provider.getServices()) {
-                System.out.println("  Algorithm: " + service.getAlgorithm());
+                System.out.printf("  %s: %s%n", service.getType(), service.getAlgorithm());
             }
         }
     }
@@ -77,12 +85,6 @@ public class RandomTests {
         }
         list.stream().mapToDouble(a -> a).average().ifPresent(System.out::println);
         System.out.println("TIME Apache: " + (System.currentTimeMillis() - start) + "ms");
-    }
-
-    public static void stringLength() {
-        String s = "A".repeat(16);
-        System.out.println(s);
-        System.out.println(s.getBytes().length * 8);
     }
 
     public static void reverseBits() {

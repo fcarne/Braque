@@ -2,7 +2,7 @@ plugins {
     id 'java'
 }
 
-group 'org.barque'
+group 'org.galois'
 version '1.0-SNAPSHOT'
 
 repositories {

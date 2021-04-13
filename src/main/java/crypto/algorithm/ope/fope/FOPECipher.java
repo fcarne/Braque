@@ -1,31 +1,30 @@
 package crypto.algorithm.ope.fope;
 
-import crypto.EngineAutoBindable;
-import crypto.algorithm.ope.GaloisPRF;
+import crypto.algorithm.GaloisCipher;
 
 import javax.crypto.Cipher;
-import javax.crypto.CipherSpi;
-import javax.crypto.NoSuchPaddingException;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.security.*;
-import java.security.spec.AlgorithmParameterSpec;
 
-public class FOPECipher extends CipherSpi implements EngineAutoBindable {
+public class FOPECipher extends GaloisCipher {
 
     public static final String ALGORITHM_NAME = "FastOPE";
-
-    private int opmode;
-
+    private static final String PRF_ALGORITHM = "HmacSha256";
     private byte d;
-    private byte[] k;
 
     private BigInteger[] infLimitF;
     private BigInteger[] supLimitF;
-
+    private final Mac mac;
     private int nBytesLength;
+
+    public FOPECipher() throws NoSuchAlgorithmException {
+        mac = Mac.getInstance(PRF_ALGORITHM);
+    }
 
     @Override
     public String getBind() {
@@ -33,88 +32,43 @@ public class FOPECipher extends CipherSpi implements EngineAutoBindable {
     }
 
     @Override
-    protected void engineSetMode(String mode) throws NoSuchAlgorithmException {
-        throw new NoSuchAlgorithmException(ALGORITHM_NAME + " does not support different modes");
-    }
+    protected void engineInit(int opMode, Key key, SecureRandom secureRandom) throws InvalidKeyException {
+        this.opMode = opMode;
+        byte[] keyBytes = getKeyBytes(key);
+        FOPESecretKey fopeKey = new FOPESecretKey(keyBytes);
 
-    @Override
-    protected void engineSetPadding(String padding) throws NoSuchPaddingException {
-        throw new NoSuchPaddingException(ALGORITHM_NAME + " does not support different padding mechanisms");
-    }
+        BigDecimal alpha = BigDecimal.valueOf(fopeKey.getAlpha());
+        BigDecimal beta = BigDecimal.valueOf(fopeKey.getBeta());
+        BigDecimal n = BigDecimal.valueOf((fopeKey.getN()));
+        BigDecimal e = BigDecimal.valueOf(fopeKey.getE());
 
-    @Override
-    protected int engineGetBlockSize() {
-        return 1;
-    }
+        d = fopeKey.getD();
+        infLimitF = new BigInteger[d + 1];
+        supLimitF = new BigInteger[d + 1];
 
-    @Override
-    protected int engineGetOutputSize(int i) {
-        return 0;
-    }
-
-    @Override
-    protected byte[] engineGetIV() {
-        return null;
-    }
-
-    @Override
-    protected AlgorithmParameters engineGetParameters() {
-        return null;
-    }
-
-    @Override
-    protected void engineInit(int opmode, Key key, SecureRandom secureRandom) throws InvalidKeyException {
-        this.opmode = opmode;
-        if (key instanceof FOPESecretKeySpec) {
-            FOPESecretKeySpec.Raw raw = ((FOPESecretKeySpec) key).decodeKey();
-
-            BigDecimal alpha = BigDecimal.valueOf(raw.getAlpha());
-            BigDecimal beta = BigDecimal.valueOf(raw.getBeta());
-            BigDecimal n = BigDecimal.valueOf((raw.getN()));
-            BigDecimal e = BigDecimal.valueOf(raw.getE());
-            k = raw.getK();
-            d = raw.getD();
-
-            infLimitF = new BigInteger[d + 1];
-            supLimitF = new BigInteger[d + 1];
-
-            for (int j = 0; j <= d; j++) {
-                BigDecimal factor = e.pow(j).multiply(n);
-                infLimitF[j] = alpha.multiply(factor).setScale(0, RoundingMode.FLOOR).toBigInteger();
-                supLimitF[j] = beta.multiply(factor).setScale(0, RoundingMode.CEILING).toBigInteger();
-            }
-            infLimitF[d] = BigInteger.ONE;
-
-
-            nBytesLength = n.toBigInteger().toByteArray().length;
-        } else throw new InvalidKeyException("The key used is not a " + ALGORITHM_NAME + " Key");
-    }
-
-    @Override
-    protected void engineInit(int opmode, Key key, AlgorithmParameterSpec algorithmParameterSpec, SecureRandom secureRandom) throws InvalidKeyException {
-        engineInit(opmode, key, secureRandom);
-    }
-
-    @Override
-    protected void engineInit(int opmode, Key key, AlgorithmParameters algorithmParameters, SecureRandom secureRandom) throws InvalidKeyException {
-        engineInit(opmode, key, secureRandom);
-    }
-
-    @Override
-    protected byte[] engineUpdate(byte[] input, int inputOffset, int inputLen) {
-        byte[] output = null;
-        if (opmode == Cipher.ENCRYPT_MODE) {
-            output = new byte[nBytesLength];
-        } else if (opmode == Cipher.DECRYPT_MODE) {
-            output = new byte[Long.BYTES];
+        for (int j = 0; j <= d; j++) {
+            BigDecimal factor = e.pow(j).multiply(n);
+            infLimitF[j] = alpha.multiply(factor).setScale(0, RoundingMode.FLOOR).toBigInteger();
+            supLimitF[j] = beta.multiply(factor).setScale(0, RoundingMode.CEILING).toBigInteger();
         }
-        engineUpdate(input, inputOffset, inputLen, output, 0);
-        return output;
+        infLimitF[d] = BigInteger.ONE;
+
+        mac.init(new SecretKeySpec(fopeKey.getK(), PRF_ALGORITHM));
+        nBytesLength = n.toBigInteger().toByteArray().length;
+    }
+
+    @Override
+    protected int engineGetOutputSize(int inputLen) {
+        if (opMode == Cipher.ENCRYPT_MODE && nBytesLength > 0) {
+            return nBytesLength;
+        } else if (opMode == Cipher.DECRYPT_MODE) {
+            return Long.BYTES;
+        } else return 0;
     }
 
     @Override
     protected int engineUpdate(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) {
-        if (opmode == Cipher.ENCRYPT_MODE) {
+        if (opMode == Cipher.ENCRYPT_MODE) {
             long x = ByteBuffer.wrap(input).getLong();
 
             BigInteger cipher = f(0, 0);
@@ -125,7 +79,7 @@ public class FOPECipher extends CipherSpi implements EngineAutoBindable {
 
             byte[] cipherArray = cipher.toByteArray();
             System.arraycopy(cipherArray, 0, output, output.length - cipherArray.length, cipherArray.length);
-        } else if (opmode == Cipher.DECRYPT_MODE) {
+        } else if (opMode == Cipher.DECRYPT_MODE) {
             BigInteger c = new BigInteger(input);
 
             BigInteger a = f(0, 0);
@@ -150,29 +104,52 @@ public class FOPECipher extends CipherSpi implements EngineAutoBindable {
         return inputLen;
     }
 
-    @Override
-    protected byte[] engineDoFinal(byte[] input, int inputOffset, int inputLen) {
-        return engineUpdate(input, inputOffset, inputLen);
-    }
-
-    @Override
-    protected int engineDoFinal(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) {
-        return engineUpdate(input, inputOffset, inputLen, output, outputOffset);
-    }
-
     private BigInteger f(int i, long x) {
         try {
             // Include only i most significant bits
             int shift = d - i;
             x = x >> shift << shift;
 
-            byte[] hash = GaloisPRF.generate(k, x);
-            BigInteger bi = new BigInteger(hash);
-            return bi.mod(supLimitF[i].subtract(infLimitF[i])).add(infLimitF[i]);
+            return prf(x).mod(supLimitF[i].subtract(infLimitF[i])).add(infLimitF[i]);
         } catch (ArithmeticException e) {
             e.printStackTrace();
             return BigInteger.ONE.multiply(BigInteger.valueOf(-1));
         }
+    }
+
+    /*private BigInteger prf_NewForEach(long x) {
+        byte[] message = ByteBuffer.allocate(Long.BYTES).putLong(x).array();
+
+        Mac mac;
+        try {
+            mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(k, "HmacSHA256"));
+        } catch (NoSuchAlgorithmException | InvalidKeyException e) {
+            throw new ProviderException(e);
+        }
+        byte[] hash = mac.doFinal(message);
+        return new BigInteger(hash);
+    }*/
+
+    /*private BigInteger prf_OneForInstance(long x) {
+        byte[] message = ByteBuffer.allocate(Long.BYTES).putLong(x).array();
+        byte[] hash;
+        synchronized (mac) {
+            hash = mac.doFinal(message);
+        }
+        return new BigInteger(hash);
+    }*/
+
+    private BigInteger prf(long x) {
+        byte[] message = ByteBuffer.allocate(Long.BYTES).putLong(x).array();
+        try {
+            Mac macClone = (Mac) mac.clone();
+            return new BigInteger(macClone.doFinal(message));
+        } catch (CloneNotSupportedException e) {
+            // never thrown
+            throw new ProviderException(e);
+        }
+
     }
 
 }
