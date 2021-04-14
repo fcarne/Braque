@@ -1,36 +1,27 @@
 import crypto.GaloisJCE;
+import crypto.algorithm.util.FluentBitSet;
 import org.apache.commons.math3.distribution.HypergeometricDistribution;
 import org.renjin.script.RenjinScriptEngineFactory;
 import org.renjin.sexp.DoubleArrayVector;
 
 import javax.script.ScriptEngine;
 import javax.script.ScriptException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.security.Provider;
+import java.security.SecureRandom;
 import java.security.Security;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.Random;
 
 public class RandomTests {
 
     public static void main(String[] args) {
-        BitSet bitSet = new BitSet(32);
-        bitSet.set(20);
-        bitSet.set(30);
-        bitSet.set(40);
-        bitSet.set(50);
-        bitSet.set(60);
-        bitSet.set(70);
-
-        System.out.println(bitSet);
-        int i = bitSet.length() - 1;
-        do {
-            bitSet.clear(i);
-            bitSet.set(i + 4);
-            i = bitSet.previousSetBit(i);
-        } while (i >= 0);
-        System.out.println(bitSet);
+        FluentBitSet fluentBitSet = new FluentBitSet().set(127, 128);
+        System.out.println(fluentBitSet);
+        System.out.println(fluentBitSet.shiftRight(64));
+        System.out.println(fluentBitSet.shiftLeft(64, 128));
 
     }
 

@@ -112,63 +112,62 @@ public abstract class StottCipher extends GaloisCipher {
         }
 
         int bitsLength = parameterSpec.getBitsMaxLength();
-        ByteBuffer buffer = ByteBuffer.allocate(parameterSpec.getMaxLength()).put(input);
-        FluentBitSet original = FluentBitSet.valueOf(buffer, ByteOrder.BIG_ENDIAN);
+        ByteBuffer buffer = ByteBuffer.allocate(parameterSpec.getMaxLength()).put(input).position(0);
+        FluentBitSet plaintext = FluentBitSet.valueOf(buffer, ByteOrder.BIG_ENDIAN);
+
+        byte[] resultArray = new byte[0];
 
         if (opMode == Cipher.ENCRYPT_MODE) {
-            FluentBitSet result = new FluentBitSet(parameterSpec.getMaxLength() * 8);
+            FluentBitSet ciphertext = new FluentBitSet(parameterSpec.getMaxLength() * 8);
 
             for (int pos = 0; pos < inputLen * 8; pos++) {
-                FluentBitSet otp = calculateOTP(original, padBits, pos);
-
+                FluentBitSet otp = calculateOTP(plaintext, padBits, pos);
                 byte[] cipherInput = otp.toByteArray();
+
                 byte[] cipherOutput = new byte[0];
                 try {
-                    cipherOutput = Arrays.copyOfRange(cipher.doFinal(cipherInput), 0, parameterSpec.getMaxLength());
+                    cipherOutput = cipher.doFinal(cipherInput);
                 } catch (IllegalBlockSizeException | BadPaddingException e) {
                     e.printStackTrace();
                 }
 
-                BitSet msb = new BitSet(bitsLength - pos);
-                msb.set(bitsLength - 1 - pos, BitSet.valueOf(cipherOutput).get(bitsLength - 1));
-                result.or(msb);
+                FluentBitSet msb = FluentBitSet.valueOf(cipherOutput).get(bitsLength - 1);
+                ciphertext.or(msb.shiftRight(pos));
 
             }
-            result.xor(original);
+            ciphertext.xor(plaintext);
 
-            byte[] resultArray = Arrays.copyOfRange(result.toByteArray(ByteOrder.BIG_ENDIAN), 0, inputLen);
-
-            if (suffixMode) {
-                resultArray = reverse(resultArray);
-            }
-
-            System.arraycopy(resultArray, 0, output, 0, output.length);
-
+            resultArray = ciphertext.toByteArray(ByteOrder.BIG_ENDIAN);
         } else if (opMode == Cipher.DECRYPT_MODE) {
 
             for (int pos = 0; pos < inputLen * 8; pos++) {
-                FluentBitSet otp = calculateOTP(original, padBits, pos);
-
+                FluentBitSet otp = calculateOTP(plaintext, padBits, pos);
                 byte[] cipherInput = otp.toByteArray();
+
                 byte[] cipherOutput = new byte[0];
                 try {
-                    cipherOutput = Arrays.copyOfRange(cipher.doFinal(cipherInput), 0, parameterSpec.getMaxLength());
+                    cipherOutput = cipher.doFinal(cipherInput);
                 } catch (IllegalBlockSizeException | BadPaddingException e) {
                     e.printStackTrace();
                 }
 
-                BitSet msb = new BitSet(bitsLength - pos);
-                msb.set(bitsLength - 1 - pos, BitSet.valueOf(cipherOutput).get(bitsLength - 1));
-                original.xor(msb);
+                FluentBitSet msb = FluentBitSet.valueOf(cipherOutput).get(bitsLength - 1);
+                plaintext.xor(msb.shiftRight(pos));
             }
 
-            byte[] originalArray = Arrays.copyOfRange(original.toByteArray(ByteOrder.BIG_ENDIAN), 0, inputLen);
+            resultArray = plaintext.toByteArray(ByteOrder.BIG_ENDIAN);
+        }
 
-            if (suffixMode) {
-                originalArray = reverse(originalArray);
+        if (!suffixMode) {
+            // if the first bytes are 0, those will be deleted. We need to know the length of the returned byte array
+            // and copy it shifting by the difference
+            int offset = parameterSpec.getMaxLength() - resultArray.length;
+            if (resultArray.length == 0) { // all bytes are 0
+                offset = inputLen;
             }
-
-            System.arraycopy(originalArray, 0, output, 0, output.length);
+            System.arraycopy(resultArray, 0, output, offset, inputLen - offset);
+        } else {
+            System.arraycopy(reverse(resultArray), 0, output, 0, resultArray.length);
         }
 
         return inputLen;
@@ -198,7 +197,7 @@ public abstract class StottCipher extends GaloisCipher {
             otp = FluentBitSet.valueOf(padBits).shiftLeft(pos).
                     or(FluentBitSet.valueOf(padBits).shiftRight(length - pos));
 
-            shiftedPad[pos] = (BitSet) otp.getBitSet().clone();
+            shiftedPad[pos] = (BitSet) otp.getBitset().clone();
         }
         otp.xor(mask.and(original));
 

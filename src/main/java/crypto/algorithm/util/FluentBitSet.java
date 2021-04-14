@@ -6,112 +6,177 @@ import java.util.BitSet;
 
 public class FluentBitSet implements Cloneable {
 
-    private BitSet bitSet;
+    private BitSet bitset;
 
     public FluentBitSet() {
-        bitSet = new BitSet();
+        bitset = new BitSet();
     }
 
     public FluentBitSet(int nbits) {
-        bitSet = new BitSet(nbits);
+        bitset = new BitSet(nbits);
     }
 
-    private FluentBitSet(BitSet bitSet) {
-        this.bitSet = (BitSet) bitSet.clone();
+    private FluentBitSet(BitSet bitset) {
+        this.bitset = (BitSet) bitset.clone();
+    }
+
+    public static FluentBitSet valueOf(ByteBuffer buffer, ByteOrder order) {
+        if (ByteOrder.LITTLE_ENDIAN.equals(order))
+            return new FluentBitSet(BitSet.valueOf(buffer));
+
+        if (ByteOrder.BIG_ENDIAN.equals(order)) {
+            buffer = buffer.duplicate();
+
+            int n = buffer.capacity();
+            long[] words = new long[(n + 7) / 8];
+
+            int i = 0;
+            while (n >= 8) {
+                words[i++] = buffer.getLong(n - 8);
+                n -= 8;
+            }
+
+            for (int j = n; j > 0; j--) words[i] |= (buffer.get(j - 1) & 0xFFL) << ((n - j) * 8);
+
+            return new FluentBitSet(BitSet.valueOf(words));
+        }
+
+        throw new RuntimeException("Invalid value for ByteOrder: " + order.toString());
+    }
+
+    public static FluentBitSet valueOf(ByteBuffer buffer) {
+        return valueOf(buffer, ByteOrder.LITTLE_ENDIAN);
     }
 
     public static FluentBitSet valueOf(byte[] bytes, ByteOrder order) {
-        if (ByteOrder.LITTLE_ENDIAN.equals(order))
-            return new FluentBitSet(BitSet.valueOf(bytes));
-        if (ByteOrder.BIG_ENDIAN.equals(order))
-            return new FluentBitSet(BitSet.valueOf(reverseBytes(bytes)));
-        return new FluentBitSet();
+        return valueOf(ByteBuffer.wrap(bytes), order);
     }
 
     public static FluentBitSet valueOf(byte[] bytes) {
         return valueOf(bytes, ByteOrder.LITTLE_ENDIAN);
     }
 
-    public static FluentBitSet valueOf(ByteBuffer buffer, ByteOrder order) {
-        return valueOf(buffer.array(), order);
-    }
-
-    public static FluentBitSet valueOf(ByteBuffer buffer) {
-        return valueOf(buffer.array());
-    }
-
     public static FluentBitSet valueOf(BitSet bitSet) {
         return new FluentBitSet(bitSet);
     }
 
-    public BitSet getBitSet() {
-        return bitSet;
+    public BitSet getBitset() {
+        return bitset;
     }
 
+    public FluentBitSet get(int bitIndex) {
+        FluentBitSet newBitSet = new FluentBitSet();
+        newBitSet.bitset.set(bitIndex, this.bitset.get(bitIndex));
+        return newBitSet;
+    }
 
     public FluentBitSet set(int fromIndex, int toIndex) {
-        bitSet.set(fromIndex, toIndex);
+        bitset.set(fromIndex, toIndex);
         return this;
     }
 
     public FluentBitSet and(BitSet set) {
-        bitSet.and(set);
+        bitset.and(set);
         return this;
     }
 
     public FluentBitSet and(FluentBitSet fluentBitSet) {
-        bitSet.and(fluentBitSet.bitSet);
-        return this;
+        return and(fluentBitSet.bitset);
     }
 
     public FluentBitSet or(BitSet set) {
-        bitSet.or(set);
+        bitset.or(set);
         return this;
     }
 
     public FluentBitSet or(FluentBitSet fluentBitSet) {
-        bitSet.or(fluentBitSet.bitSet);
-        return this;
+        return or(fluentBitSet.bitset);
     }
 
     public FluentBitSet xor(BitSet set) {
-        bitSet.xor(set);
+        bitset.xor(set);
         return this;
     }
 
     public FluentBitSet xor(FluentBitSet fluentBitSet) {
-        bitSet.xor(fluentBitSet.bitSet);
-        return this;
+        return xor(fluentBitSet.bitset);
+    }
+
+    public FluentBitSet shiftLeft(int n, int maxBitSize) throws IllegalArgumentException {
+        if (maxBitSize % 64 != 0) throw new IllegalArgumentException("maxBitSize must be a multiple of 64");
+        return shiftLeft(n, bitset.toLongArray(), maxBitSize / 64);
     }
 
     public FluentBitSet shiftLeft(int n) {
-        long[] words = bitSet.toLongArray();
-        for (int i = words.length - 1; i >= 0; i--) {
-            words[i] <<= n;
-            if (i != 0) {
-                words[i] |= words[i - 1] >>> (64 - n);
+        long[] words = bitset.toLongArray();
+        return shiftLeft(n, words, words.length);
+    }
+
+    private FluentBitSet shiftLeft(int n, long[] words, int length) {
+        long[] shifted = new long[length];
+
+        int leftPart = n / 64;
+        int rightPart = leftPart + 1;
+
+        for (int i = shifted.length - 1; i >= 0; i--) {
+            if (i - rightPart >= words.length) continue;
+            if (n % 64 != 0 && i > rightPart - 1) {
+                shifted[i] |= words[i - rightPart] >>> (64 - n % 64);
             }
+            if (i - leftPart >= words.length) continue;
+            if (i > leftPart - 1)
+                shifted[i] |= words[i - leftPart] << n;
+
         }
-        bitSet = BitSet.valueOf(words);
+        bitset = BitSet.valueOf(shifted);
         return this;
     }
 
     public FluentBitSet shiftRight(int n) {
-        long[] words = bitSet.toLongArray();
+        long[] words = bitset.toLongArray();
+        long[] shifted = new long[words.length];
+
+        int rightPart = n / 64;
+        int leftPart = rightPart + 1;
+
         for (int i = 0; i < words.length; i++) {
-            words[i] >>>= n;
-            if (i != words.length - 1) {
-                words[i] |= words[i + 1] << (64 - n);
+            if (i < words.length - rightPart) {
+                shifted[i] |= words[i + rightPart] >>> n;
+            }
+            if (n % 64 != 0 && i < words.length - leftPart) {
+                shifted[i] |= words[i + leftPart] << (64 - n % 64);
             }
         }
-        bitSet = BitSet.valueOf(words);
+        bitset = BitSet.valueOf(shifted);
         return this;
     }
 
     public byte[] toByteArray(ByteOrder order) {
-        if (ByteOrder.LITTLE_ENDIAN.equals(order)) return bitSet.toByteArray();
-        if (ByteOrder.BIG_ENDIAN.equals(order)) return reverseBytes(bitSet.toByteArray());
-        return new byte[0];
+        if (ByteOrder.LITTLE_ENDIAN.equals(order))
+            return bitset.toByteArray();
+
+        if (ByteOrder.BIG_ENDIAN.equals(order)) {
+            long[] words = bitset.toLongArray();
+            int n = words.length;
+
+            if (n == 0) return new byte[0];
+
+            int len = 8 * (n - 1);
+            int singleBytes = 0;
+            for (long x = words[n - 1]; x != 0; x >>>= 8) singleBytes++;
+            len += singleBytes;
+
+            byte[] bytes = new byte[len];
+            ByteBuffer buffer = ByteBuffer.wrap(bytes);
+
+            for (int j = singleBytes - 1; j >= 0; j--) buffer.put((byte) (words[n - 1] >>> j * 8 & 0xFF));
+
+            for (int i = n - 2; i >= 0; i--) buffer.putLong(words[i]);
+
+            return bytes;
+        }
+
+        throw new RuntimeException("Invalid value for ByteOrder: " + order.toString());
     }
 
     public byte[] toByteArray() {
@@ -126,5 +191,10 @@ public class FluentBitSet implements Cloneable {
             reversed[reversed.length - 1 - i] = temp;
         }
         return reversed;
+    }
+
+    @Override
+    public String toString() {
+        return bitset.toString();
     }
 }
